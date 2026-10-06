@@ -39,12 +39,22 @@ const RESOLUTION_MAP = {
   '2160': { width: 3840, height: 2160 }
 };
 
-// ICE / TURN / STUN Configuration
+// ICE / STUN / TURN Configuration
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
-  { urls: 'stun:global.stun.twilio.com:3478' }
+  { urls: 'stun:global.stun.twilio.com:3478' },
+  {
+    urls: 'turn:openrelay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
 ];
 
 // Initialize PeerJS Connection
@@ -61,16 +71,13 @@ function initPeer() {
     myPeerIdEl.textContent = id;
   });
 
-  // Handle incoming Data Connection (Room Pairing)
   peer.on('connection', (conn) => {
     setupDataConnection(conn);
   });
 
-  // Handle incoming Media Call (Screen Share / Voice)
   peer.on('call', async (call) => {
     currentCall = call;
 
-    // Answer with micStream if active
     if (!micStream) {
       try {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -79,19 +86,8 @@ function initPeer() {
       }
     }
 
-    call.answer(micStream || createEmptyStream());
-
-    call.on('stream', (remoteStream) => {
-      displayRemoteStream(remoteStream);
-    });
-
-    call.on('close', () => {
-      resetVideoDisplay();
-    });
-
-    call.on('error', (err) => {
-      console.error('Call Error:', err);
-    });
+    call.answer(localStream || micStream || createEmptyStream());
+    setupCallHandlers(call);
   });
 
   peer.on('error', (err) => {
@@ -100,7 +96,35 @@ function initPeer() {
   });
 }
 
-// Setup Data Connection for status and signaling
+function setupCallHandlers(call) {
+  call.on('stream', (remoteStream) => {
+    // Only update video player if incoming stream has active video tracks
+    if (remoteStream.getVideoTracks().length > 0) {
+      displayRemoteStream(remoteStream, false);
+    }
+  });
+
+  if (call.peerConnection) {
+    call.peerConnection.oniceconnectionstatechange = () => {
+      const state = call.peerConnection.iceConnectionState;
+      console.log('ICE Connection State:', state);
+      if (state === 'connected' || state === 'completed') {
+        updateStatus(true, 'Verbunden (Stream Aktiv)');
+      } else if (state === 'failed' || state === 'disconnected') {
+        updateStatus(false, 'Verbindung getrennt');
+      }
+    };
+  }
+
+  call.on('close', () => {
+    resetVideoDisplay();
+  });
+
+  call.on('error', (err) => {
+    console.error('Call Error:', err);
+  });
+}
+
 function setupDataConnection(conn) {
   dataConn = conn;
   connectedPeerId = conn.peer;
@@ -131,7 +155,6 @@ function setupDataConnection(conn) {
   });
 }
 
-// Create empty audio stream if answering without mic
 function createEmptyStream() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = ctx.createOscillator();
@@ -151,7 +174,6 @@ function updateStatus(connected, text) {
   }
 }
 
-// Copy Peer ID to Clipboard
 copyIdBtn.addEventListener('click', () => {
   const idText = myPeerIdEl.textContent;
   if (idText && !idText.includes('Wird generiert')) {
@@ -160,7 +182,6 @@ copyIdBtn.addEventListener('click', () => {
   }
 });
 
-// Connect to Remote Peer
 connectBtn.addEventListener('click', () => {
   const remoteId = remoteIdInput.value.trim();
   if (!remoteId) {
@@ -173,10 +194,9 @@ connectBtn.addEventListener('click', () => {
   setupDataConnection(conn);
 });
 
-// Display Remote Stream in Video Element (Muted if local stream)
 function displayRemoteStream(stream, isLocal = false) {
   remoteVideo.srcObject = stream;
-  remoteVideo.muted = isLocal; // Mute local preview to prevent audio feedback loop
+  remoteVideo.muted = isLocal;
   videoPlaceholder.classList.add('hidden');
   statsOverlay.classList.remove('hidden');
 
@@ -196,7 +216,6 @@ function resetVideoDisplay() {
   statsOverlay.classList.add('hidden');
 }
 
-// Open Screen Picker Modal
 startShareBtn.addEventListener('click', async () => {
   if (window.electronAPI) {
     const sources = await window.electronAPI.getSources();
@@ -218,7 +237,6 @@ startShareBtn.addEventListener('click', async () => {
 
     sourceModal.classList.remove('hidden');
   } else {
-    // Fallback for standard browser getDisplayMedia
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: parseInt(fpsSelect.value) },
@@ -236,46 +254,35 @@ closeModalBtn.addEventListener('click', () => {
   sourceModal.classList.add('hidden');
 });
 
-// Start Screen Capture
 async function startScreenShare(sourceId) {
   const selectedRes = RESOLUTION_MAP[resSelect.value];
   const targetFps = parseInt(fpsSelect.value);
 
   try {
     let desktopStream;
+    // Standard modern WebRTC getUserMedia syntax for desktop capture in Electron
+    const videoConstraints = {
+      mandatory: {
+        chromeMediaSource: 'desktop',
+        chromeMediaSourceId: sourceId,
+        maxWidth: selectedRes.width,
+        maxHeight: selectedRes.height,
+        maxFrameRate: targetFps
+      }
+    };
+
     try {
       desktopStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          mandatory: {
-            chromeMediaSource: 'desktop'
-          }
-        },
-        video: {
-          mandatory: {
-            chromeMediaSource: 'desktop',
-            chromeMediaSourceId: sourceId,
-            maxWidth: selectedRes.width,
-            maxHeight: selectedRes.height,
-            maxFrameRate: targetFps
-          }
-        }
+        audio: { mandatory: { chromeMediaSource: 'desktop' } },
+        video: videoConstraints
       });
-    } catch (audioErr) {
+    } catch (e) {
       desktopStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: {
-          mandatory: {
-            chromeMediaSource: 'desktop',
-            chromeMediaSourceId: sourceId,
-            maxWidth: selectedRes.width,
-            maxHeight: selectedRes.height,
-            maxFrameRate: targetFps
-          }
-        }
+        video: videoConstraints
       });
     }
 
-    // Capture Microphone Stream if active
     try {
       if (!micStream) {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -296,7 +303,7 @@ async function startScreenShare(sourceId) {
 
 function handleStreamCaptured(stream) {
   localStream = stream;
-  displayRemoteStream(stream, true); // Local preview is muted to prevent feedback loop
+  displayRemoteStream(stream, true);
 
   startShareBtn.classList.add('hidden');
   stopShareBtn.classList.remove('hidden');
@@ -313,9 +320,7 @@ function handleStreamCaptured(stream) {
     }
 
     currentCall = peer.call(targetPeer, stream);
-    currentCall.on('stream', (remoteStream) => {
-      displayRemoteStream(remoteStream, false);
-    });
+    setupCallHandlers(currentCall);
   }
 
   stream.getVideoTracks()[0].onended = () => {
@@ -323,7 +328,6 @@ function handleStreamCaptured(stream) {
   };
 }
 
-// Stop Screen Share
 stopShareBtn.addEventListener('click', stopScreenShare);
 
 function stopScreenShare() {
@@ -341,7 +345,6 @@ function stopScreenShare() {
   stopShareBtn.classList.add('hidden');
 }
 
-// Toggle Microphone Mute
 toggleMicBtn.addEventListener('click', () => {
   if (micStream) {
     isMicMuted = !isMicMuted;
@@ -353,12 +356,10 @@ toggleMicBtn.addEventListener('click', () => {
   }
 });
 
-// Control Stream Volume
 volumeRange.addEventListener('input', (e) => {
   remoteVideo.volume = e.target.value / 100;
 });
 
-// Fullscreen Control
 fullscreenBtn.addEventListener('click', () => {
   if (!document.fullscreenElement) {
     remoteVideo.requestFullscreen().catch(err => {
@@ -369,5 +370,4 @@ fullscreenBtn.addEventListener('click', () => {
   }
 });
 
-// Initialize on page load
 initPeer();
