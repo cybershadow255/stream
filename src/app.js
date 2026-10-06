@@ -27,10 +27,6 @@ const statRes = document.getElementById('stat-res');
 const statFps = document.getElementById('stat-fps');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 
-const sourceModal = document.getElementById('source-modal');
-const sourceList = document.getElementById('source-list');
-const closeModalBtn = document.getElementById('close-modal-btn');
-
 // Resolution Map
 const RESOLUTION_MAP = {
   '720': { width: 1280, height: 720 },
@@ -39,11 +35,12 @@ const RESOLUTION_MAP = {
   '2160': { width: 3840, height: 2160 }
 };
 
-// ICE / STUN / TURN Configuration
+// ICE / STUN / TURN Configuration for zero-download P2P
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
   { urls: 'stun:global.stun.twilio.com:3478' },
   {
     urls: 'turn:openrelay.metered.ca:80',
@@ -98,7 +95,6 @@ function initPeer() {
 
 function setupCallHandlers(call) {
   call.on('stream', (remoteStream) => {
-    // Only update video player if incoming stream has active video tracks
     if (remoteStream.getVideoTracks().length > 0) {
       displayRemoteStream(remoteStream, false);
     }
@@ -200,8 +196,10 @@ function displayRemoteStream(stream, isLocal = false) {
   videoPlaceholder.classList.add('hidden');
   statsOverlay.classList.remove('hidden');
 
-  statRes.textContent = `${resSelect.value}p`;
-  statFps.textContent = `${fpsSelect.value} FPS`;
+  if (isLocal) {
+    statRes.textContent = `${resSelect.value}p`;
+    statFps.textContent = `${fpsSelect.value} FPS`;
+  }
 
   remoteVideo.play().catch((err) => {
     console.warn('Autoplay handled:', err);
@@ -216,72 +214,20 @@ function resetVideoDisplay() {
   statsOverlay.classList.add('hidden');
 }
 
+// Zero-Download Screen Sharing using standard WebRTC getDisplayMedia API
 startShareBtn.addEventListener('click', async () => {
-  if (window.electronAPI) {
-    const sources = await window.electronAPI.getSources();
-    sourceList.innerHTML = '';
-
-    sources.forEach(source => {
-      const item = document.createElement('div');
-      item.className = 'source-item';
-      item.innerHTML = `
-        <img src="${source.thumbnail}" alt="${source.name}">
-        <span>${source.name}</span>
-      `;
-      item.addEventListener('click', () => {
-        startScreenShare(source.id);
-        sourceModal.classList.add('hidden');
-      });
-      sourceList.appendChild(item);
-    });
-
-    sourceModal.classList.remove('hidden');
-  } else {
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: parseInt(fpsSelect.value) },
-        audio: true
-      });
-      handleStreamCaptured(stream);
-    } catch (e) {
-      console.error(e);
-      alert('Bildschirmübertragung abgebrochen oder nicht unterstützt.');
-    }
-  }
-});
-
-closeModalBtn.addEventListener('click', () => {
-  sourceModal.classList.add('hidden');
-});
-
-async function startScreenShare(sourceId) {
   const selectedRes = RESOLUTION_MAP[resSelect.value];
   const targetFps = parseInt(fpsSelect.value);
 
   try {
-    let desktopStream;
-    // Standard modern WebRTC getUserMedia syntax for desktop capture in Electron
-    const videoConstraints = {
-      mandatory: {
-        chromeMediaSource: 'desktop',
-        chromeMediaSourceId: sourceId,
-        maxWidth: selectedRes.width,
-        maxHeight: selectedRes.height,
-        maxFrameRate: targetFps
-      }
-    };
-
-    try {
-      desktopStream = await navigator.mediaDevices.getUserMedia({
-        audio: { mandatory: { chromeMediaSource: 'desktop' } },
-        video: videoConstraints
-      });
-    } catch (e) {
-      desktopStream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: videoConstraints
-      });
-    }
+    const desktopStream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        width: { ideal: selectedRes.width, max: selectedRes.width },
+        height: { ideal: selectedRes.height, max: selectedRes.height },
+        frameRate: { ideal: targetFps, max: targetFps }
+      },
+      audio: true
+    });
 
     try {
       if (!micStream) {
@@ -291,15 +237,15 @@ async function startScreenShare(sourceId) {
         desktopStream.addTrack(track);
       });
     } catch (micErr) {
-      console.warn('Mikrofon nicht gefunden oder Zugriff verweigert:', micErr);
+      console.warn('Mikrofon nicht verfügbar:', micErr);
     }
 
     handleStreamCaptured(desktopStream);
   } catch (err) {
     console.error('Fehler beim Starten des Screenshares:', err);
-    alert('Bildschirmübertragung konnte nicht gestartet werden.');
+    alert('Bildschirmübertragung abgebrochen oder im Browser/App nicht gestattet.');
   }
-}
+});
 
 function handleStreamCaptured(stream) {
   localStream = stream;
