@@ -27,6 +27,10 @@ const statRes = document.getElementById('stat-res');
 const statFps = document.getElementById('stat-fps');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 
+const sourceModal = document.getElementById('source-modal');
+const sourceList = document.getElementById('source-list');
+const closeModalBtn = document.getElementById('close-modal-btn');
+
 // Resolution Map
 const RESOLUTION_MAP = {
   '720': { width: 1280, height: 720 },
@@ -214,20 +218,73 @@ function resetVideoDisplay() {
   statsOverlay.classList.add('hidden');
 }
 
-// Zero-Download Screen Sharing using standard WebRTC getDisplayMedia API
+// Handle Screen Share Trigger
 startShareBtn.addEventListener('click', async () => {
+  if (window.electronAPI) {
+    try {
+      const sources = await window.electronAPI.getSources();
+      sourceList.innerHTML = '';
+
+      sources.forEach(source => {
+        const item = document.createElement('div');
+        item.className = 'source-item';
+        item.innerHTML = `
+          <img src="${source.thumbnail}" alt="${source.name}">
+          <span>${source.name}</span>
+        `;
+        item.addEventListener('click', async () => {
+          await window.electronAPI.setSelectedSource(source.id);
+          sourceModal.classList.add('hidden');
+          startScreenShare();
+        });
+        sourceList.appendChild(item);
+      });
+
+      sourceModal.classList.remove('hidden');
+    } catch (e) {
+      console.warn('Electron source picker fallback:', e);
+      startScreenShare();
+    }
+  } else {
+    startScreenShare();
+  }
+});
+
+closeModalBtn.addEventListener('click', () => {
+  sourceModal.classList.add('hidden');
+});
+
+// Robust getDisplayMedia capture with audio capture fallback
+async function startScreenShare() {
   const selectedRes = RESOLUTION_MAP[resSelect.value];
   const targetFps = parseInt(fpsSelect.value);
 
+  const constraintsWithAudio = {
+    video: {
+      width: { ideal: selectedRes.width, max: selectedRes.width },
+      height: { ideal: selectedRes.height, max: selectedRes.height },
+      frameRate: { ideal: targetFps, max: targetFps }
+    },
+    audio: true
+  };
+
+  const constraintsWithoutAudio = {
+    video: {
+      width: { ideal: selectedRes.width, max: selectedRes.width },
+      height: { ideal: selectedRes.height, max: selectedRes.height },
+      frameRate: { ideal: targetFps, max: targetFps }
+    },
+    audio: false
+  };
+
   try {
-    const desktopStream = await navigator.mediaDevices.getDisplayMedia({
-      video: {
-        width: { ideal: selectedRes.width, max: selectedRes.width },
-        height: { ideal: selectedRes.height, max: selectedRes.height },
-        frameRate: { ideal: targetFps, max: targetFps }
-      },
-      audio: true
-    });
+    let desktopStream;
+    try {
+      desktopStream = await navigator.mediaDevices.getDisplayMedia(constraintsWithAudio);
+    } catch (audioErr) {
+      console.warn('System audio capture failed/denied, falling back to video-only capture:', audioErr);
+      desktopStream = await navigator.mediaDevices.getDisplayMedia(constraintsWithoutAudio);
+    }
 
     try {
       if (!micStream) {
@@ -243,9 +300,11 @@ startShareBtn.addEventListener('click', async () => {
     handleStreamCaptured(desktopStream);
   } catch (err) {
     console.error('Fehler beim Starten des Screenshares:', err);
-    alert('Bildschirmübertragung abgebrochen oder im Browser/App nicht gestattet.');
+    if (err.name !== 'NotAllowedError') {
+      alert('Bildschirmübertragung konnte nicht gestartet werden: ' + err.message);
+    }
   }
-});
+}
 
 function handleStreamCaptured(stream) {
   localStream = stream;
