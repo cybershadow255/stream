@@ -39,19 +39,21 @@ const RESOLUTION_MAP = {
   '2160': { width: 3840, height: 2160 }
 };
 
+// ICE / TURN / STUN Configuration
+const ICE_SERVERS = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:global.stun.twilio.com:3478' }
+];
+
 // Initialize PeerJS Connection
 function initPeer() {
   const randomId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
   peer = new Peer(randomId, {
     debug: 1,
     config: {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' }
-      ]
+      iceServers: ICE_SERVERS
     }
   });
 
@@ -65,21 +67,26 @@ function initPeer() {
   });
 
   // Handle incoming Media Call (Screen Share / Voice)
-  peer.on('call', (call) => {
+  peer.on('call', async (call) => {
     currentCall = call;
-    call.answer(localStream || createEmptyStream());
+
+    // Answer with micStream if active
+    if (!micStream) {
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        console.warn('Microphone unavailable:', err);
+      }
+    }
+
+    call.answer(micStream || createEmptyStream());
 
     call.on('stream', (remoteStream) => {
-      // Only display remote stream if we are not actively sharing our own screen
-      if (!localStream) {
-        displayRemoteStream(remoteStream);
-      }
+      displayRemoteStream(remoteStream);
     });
 
     call.on('close', () => {
-      if (!localStream) {
-        resetVideoDisplay();
-      }
+      resetVideoDisplay();
     });
 
     call.on('error', (err) => {
@@ -107,9 +114,7 @@ function setupDataConnection(conn) {
       statRes.textContent = `${data.res}p`;
       statFps.textContent = `${data.fps} FPS`;
     } else if (data.type === 'STOP_SHARE') {
-      if (!localStream) {
-        resetVideoDisplay();
-      }
+      resetVideoDisplay();
     }
   });
 
@@ -117,9 +122,7 @@ function setupDataConnection(conn) {
     updateStatus(false, 'Getrennt');
     connectedPeerId = null;
     dataConn = null;
-    if (!localStream) {
-      resetVideoDisplay();
-    }
+    resetVideoDisplay();
   });
 
   conn.on('error', (err) => {
@@ -128,7 +131,7 @@ function setupDataConnection(conn) {
   });
 }
 
-// Create empty audio stream if answering without stream
+// Create empty audio stream if answering without mic
 function createEmptyStream() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = ctx.createOscillator();
@@ -170,14 +173,21 @@ connectBtn.addEventListener('click', () => {
   setupDataConnection(conn);
 });
 
-// Display Stream
-function displayRemoteStream(stream) {
+// Display Remote Stream in Video Element (Muted if local stream)
+function displayRemoteStream(stream, isLocal = false) {
   remoteVideo.srcObject = stream;
+  remoteVideo.muted = isLocal; // Mute local preview to prevent audio feedback loop
   videoPlaceholder.classList.add('hidden');
   statsOverlay.classList.remove('hidden');
 
   statRes.textContent = `${resSelect.value}p`;
   statFps.textContent = `${fpsSelect.value} FPS`;
+
+  remoteVideo.play().catch((err) => {
+    console.warn('Autoplay handled:', err);
+    remoteVideo.muted = true;
+    remoteVideo.play().catch((e) => console.error('Play error:', e));
+  });
 }
 
 function resetVideoDisplay() {
@@ -226,7 +236,7 @@ closeModalBtn.addEventListener('click', () => {
   sourceModal.classList.add('hidden');
 });
 
-// Start Screen Capture with flexible Resolution & FPS constraints
+// Start Screen Capture
 async function startScreenShare(sourceId) {
   const selectedRes = RESOLUTION_MAP[resSelect.value];
   const targetFps = parseInt(fpsSelect.value);
@@ -251,7 +261,6 @@ async function startScreenShare(sourceId) {
         }
       });
     } catch (audioErr) {
-      // Retry without desktop audio if audio capture fails or is unsupported
       desktopStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
@@ -268,7 +277,9 @@ async function startScreenShare(sourceId) {
 
     // Capture Microphone Stream if active
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!micStream) {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
       micStream.getAudioTracks().forEach(track => {
         desktopStream.addTrack(track);
       });
@@ -285,7 +296,7 @@ async function startScreenShare(sourceId) {
 
 function handleStreamCaptured(stream) {
   localStream = stream;
-  displayRemoteStream(stream);
+  displayRemoteStream(stream, true); // Local preview is muted to prevent feedback loop
 
   startShareBtn.classList.add('hidden');
   stopShareBtn.classList.remove('hidden');
@@ -303,9 +314,7 @@ function handleStreamCaptured(stream) {
 
     currentCall = peer.call(targetPeer, stream);
     currentCall.on('stream', (remoteStream) => {
-      if (!localStream) {
-        displayRemoteStream(remoteStream);
-      }
+      displayRemoteStream(remoteStream, false);
     });
   }
 
@@ -322,10 +331,6 @@ function stopScreenShare() {
     localStream.getTracks().forEach(track => track.stop());
     localStream = null;
   }
-  if (micStream) {
-    micStream.getTracks().forEach(track => track.stop());
-    micStream = null;
-  }
 
   if (dataConn && dataConn.open) {
     dataConn.send({ type: 'STOP_SHARE' });
@@ -338,11 +343,9 @@ function stopScreenShare() {
 
 // Toggle Microphone Mute
 toggleMicBtn.addEventListener('click', () => {
-  if (!localStream) return;
-  const audioTracks = localStream.getAudioTracks();
-  if (audioTracks.length > 0) {
+  if (micStream) {
     isMicMuted = !isMicMuted;
-    audioTracks.forEach(track => {
+    micStream.getAudioTracks().forEach(track => {
       track.enabled = !isMicMuted;
     });
     toggleMicBtn.textContent = isMicMuted ? '🎤 Mikro: Stumm' : '🎤 Mikro: An';
