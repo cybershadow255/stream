@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StreamShare - 4K 120FPS Screen Share</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <svg class="logo" viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+          <path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm2 0v8h12V6H6zm-2 12a1 1 0 011-1h14a1 1 0 110 2H5a1 1 0 01-1-1z"/>
+        </svg>
+        <h2>StreamShare</h2>
+      </div>
+
+      <!-- Room Setup Section -->
+      <div class="card room-card">
+        <h3>Raum-Verbindung</h3>
+        <div class="input-group">
+          <label>Deine ID / Raum-Code:</label>
+          <div class="code-box">
+            <span id="my-peer-id">Wird generiert...</span>
+            <button id="copy-id-btn" class="btn-icon" title="Code kopieren">
+              📋
+            </button>
+          </div>
+        </div>
+
+        <div class="divider">ODER</div>
+
+        <div class="input-group">
+          <label for="remote-id-input">Freund-Code eingeben:</label>
+          <input type="text" id="remote-id-input" placeholder="z. B. stream-98234">
+          <button id="connect-btn" class="btn primary-btn">Verbinden</button>
+        </div>
+        <div id="connection-status" class="status-badge disconnected">Getrennt</div>
+      </div>
+
+      <!-- Controls Section -->
+      <div class="card controls-card">
+        <h3>Einstellungen & Stream</h3>
+
+        <div class="form-group">
+          <label>Auflösung:</label>
+          <select id="res-select" class="select-input">
+            <option value="720">720p (HD)</option>
+            <option value="1080" selected>1080p (Full HD)</option>
+            <option value="1440">1440p (2K)</option>
+            <option value="2160">2160p (4K / Original)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Bildrate (FPS):</label>
+          <select id="fps-select" class="select-input">
+            <option value="30">30 FPS</option>
+            <option value="60" selected>60 FPS</option>
+            <option value="120">120 FPS (Ultra Smooth)</option>
+          </select>
+        </div>
+
+        <div class="action-buttons">
+          <button id="start-share-btn" class="btn success-btn">Bildschirm teilen</button>
+          <button id="stop-share-btn" class="btn danger-btn hidden">Stream beenden</button>
+        </div>
+
+        <div class="audio-controls">
+          <div class="control-row">
+            <button id="toggle-mic-btn" class="btn secondary-btn">🎤 Mikro: An</button>
+          </div>
+          <div class="control-row">
+            <label>Stream Lautstärke:</label>
+            <input type="range" id="volume-range" min="0" max="100" value="100">
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Stream Display -->
+    <main class="main-content">
+      <div class="video-container">
+        <video id="remote-video" autoplay playsinline></video>
+        <div id="video-placeholder" class="placeholder">
+          <svg viewBox="0 0 24 24" width="64" height="64" fill="currentColor">
+            <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 10H3V8h18v8zM10 9.5v5l4.5-2.5-4.5-2.5z"/>
+          </svg>
+          <p>Warte auf übertragenen Bildschirm oder starte deinen eigenen Stream...</p>
+        </div>
+
+        <div id="stats-overlay" class="stats-overlay hidden">
+          <span id="stat-res">1080p</span> | <span id="stat-fps">60 FPS</span> | <span id="stat-ping">P2P Direct</span>
+        </div>
+
+        <button id="fullscreen-btn" class="btn-fullscreen" title="Vollbild">
+          ⛶
+        </button>
+      </div>
+    </main>
+
+    <!-- Source Selector Modal -->
+    <div id="source-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3>Wähle einen Bildschirm oder ein Fenster</h3>
+        <div id="source-list" class="source-grid"></div>
+        <button id="close-modal-btn" class="btn secondary-btn">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
