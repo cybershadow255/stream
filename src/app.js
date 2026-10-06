@@ -1,8 +1,10 @@
 let peer = null;
+let dataConn = null;
 let currentCall = null;
 let localStream = null;
 let micStream = null;
 let isMicMuted = false;
+let connectedPeerId = null;
 
 // DOM Elements
 const myPeerIdEl = document.getElementById('my-peer-id');
@@ -46,7 +48,9 @@ function initPeer() {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' }
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' }
       ]
     }
   });
@@ -55,24 +59,84 @@ function initPeer() {
     myPeerIdEl.textContent = id;
   });
 
+  // Handle incoming Data Connection (Room Pairing)
+  peer.on('connection', (conn) => {
+    setupDataConnection(conn);
+  });
+
+  // Handle incoming Media Call (Screen Share / Voice)
   peer.on('call', (call) => {
     currentCall = call;
-    updateStatus(true, 'Partner verbunden');
-    call.answer(localStream); // Answer call with local stream if available
+    call.answer(localStream || createEmptyStream());
 
     call.on('stream', (remoteStream) => {
-      displayRemoteStream(remoteStream);
+      // Only display remote stream if we are not actively sharing our own screen
+      if (!localStream) {
+        displayRemoteStream(remoteStream);
+      }
     });
 
     call.on('close', () => {
-      resetVideoDisplay();
+      if (!localStream) {
+        resetVideoDisplay();
+      }
+    });
+
+    call.on('error', (err) => {
+      console.error('Call Error:', err);
     });
   });
 
   peer.on('error', (err) => {
     console.error('PeerJS Error:', err);
-    alert('Verbindungsfehler: ' + err.type);
+    updateStatus(false, 'Fehler: ' + err.type);
   });
+}
+
+// Setup Data Connection for status and signaling
+function setupDataConnection(conn) {
+  dataConn = conn;
+  connectedPeerId = conn.peer;
+
+  conn.on('open', () => {
+    updateStatus(true, 'Verbunden mit ' + conn.peer);
+  });
+
+  conn.on('data', (data) => {
+    if (data.type === 'START_SHARE') {
+      statRes.textContent = `${data.res}p`;
+      statFps.textContent = `${data.fps} FPS`;
+    } else if (data.type === 'STOP_SHARE') {
+      if (!localStream) {
+        resetVideoDisplay();
+      }
+    }
+  });
+
+  conn.on('close', () => {
+    updateStatus(false, 'Getrennt');
+    connectedPeerId = null;
+    dataConn = null;
+    if (!localStream) {
+      resetVideoDisplay();
+    }
+  });
+
+  conn.on('error', (err) => {
+    console.error('Data Connection Error:', err);
+    updateStatus(false, 'Getrennt');
+  });
+}
+
+// Create empty audio stream if answering without stream
+function createEmptyStream() {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  const dst = osc.connect(ctx.createMediaStreamDestination());
+  osc.start();
+  const track = dst.stream.getAudioTracks()[0];
+  track.enabled = false;
+  return new MediaStream([track]);
 }
 
 function updateStatus(connected, text) {
@@ -102,26 +166,11 @@ connectBtn.addEventListener('click', () => {
   }
 
   updateStatus(true, 'Verbinde...');
-  const call = peer.call(remoteId, localStream);
-  currentCall = call;
-
-  call.on('stream', (remoteStream) => {
-    updateStatus(true, 'Verbunden');
-    displayRemoteStream(remoteStream);
-  });
-
-  call.on('close', () => {
-    resetVideoDisplay();
-    updateStatus(false, 'Getrennt');
-  });
-
-  call.on('error', (err) => {
-    alert('Fehler beim Verbinden: ' + err.message);
-    updateStatus(false, 'Getrennt');
-  });
+  const conn = peer.connect(remoteId);
+  setupDataConnection(conn);
 });
 
-// Display Remote Stream
+// Display Stream
 function displayRemoteStream(stream) {
   remoteVideo.srcObject = stream;
   videoPlaceholder.classList.add('hidden');
@@ -159,7 +208,7 @@ startShareBtn.addEventListener('click', async () => {
 
     sourceModal.classList.remove('hidden');
   } else {
-    // Fallback for browser WebRTC screen capture testing
+    // Fallback for standard browser getDisplayMedia
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: parseInt(fpsSelect.value) },
@@ -168,6 +217,7 @@ startShareBtn.addEventListener('click', async () => {
       handleStreamCaptured(stream);
     } catch (e) {
       console.error(e);
+      alert('Bildschirmübertragung abgebrochen oder nicht unterstützt.');
     }
   }
 });
@@ -176,31 +226,45 @@ closeModalBtn.addEventListener('click', () => {
   sourceModal.classList.add('hidden');
 });
 
-// Start Screen Capture with specified Resolution & FPS
+// Start Screen Capture with flexible Resolution & FPS constraints
 async function startScreenShare(sourceId) {
   const selectedRes = RESOLUTION_MAP[resSelect.value];
   const targetFps = parseInt(fpsSelect.value);
 
   try {
-    const desktopStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        mandatory: {
-          chromeMediaSource: 'desktop'
+    let desktopStream;
+    try {
+      desktopStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          mandatory: {
+            chromeMediaSource: 'desktop'
+          }
+        },
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: sourceId,
+            maxWidth: selectedRes.width,
+            maxHeight: selectedRes.height,
+            maxFrameRate: targetFps
+          }
         }
-      },
-      video: {
-        mandatory: {
-          chromeMediaSource: 'desktop',
-          chromeMediaSourceId: sourceId,
-          minWidth: selectedRes.width,
-          maxWidth: selectedRes.width,
-          minHeight: selectedRes.height,
-          maxHeight: selectedRes.height,
-          minFrameRate: targetFps,
-          maxFrameRate: targetFps
+      });
+    } catch (audioErr) {
+      // Retry without desktop audio if audio capture fails or is unsupported
+      desktopStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: sourceId,
+            maxWidth: selectedRes.width,
+            maxHeight: selectedRes.height,
+            maxFrameRate: targetFps
+          }
         }
-      }
-    });
+      });
+    }
 
     // Capture Microphone Stream if active
     try {
@@ -226,17 +290,21 @@ function handleStreamCaptured(stream) {
   startShareBtn.classList.add('hidden');
   stopShareBtn.classList.remove('hidden');
 
-  if (currentCall) {
-    // Replace current stream in active call
-    const peerConnection = currentCall.peerConnection;
-    const senders = peerConnection.getSenders();
+  const targetPeer = connectedPeerId || remoteIdInput.value.trim();
 
-    stream.getTracks().forEach(track => {
-      const sender = senders.find(s => s.track && s.track.kind === track.kind);
-      if (sender) {
-        sender.replaceTrack(track);
-      } else {
-        peerConnection.addTrack(track, stream);
+  if (targetPeer) {
+    if (dataConn && dataConn.open) {
+      dataConn.send({
+        type: 'START_SHARE',
+        res: resSelect.value,
+        fps: fpsSelect.value
+      });
+    }
+
+    currentCall = peer.call(targetPeer, stream);
+    currentCall.on('stream', (remoteStream) => {
+      if (!localStream) {
+        displayRemoteStream(remoteStream);
       }
     });
   }
@@ -257,6 +325,10 @@ function stopScreenShare() {
   if (micStream) {
     micStream.getTracks().forEach(track => track.stop());
     micStream = null;
+  }
+
+  if (dataConn && dataConn.open) {
+    dataConn.send({ type: 'STOP_SHARE' });
   }
 
   resetVideoDisplay();
