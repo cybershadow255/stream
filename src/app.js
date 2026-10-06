@@ -39,13 +39,16 @@ const RESOLUTION_MAP = {
   '2160': { width: 3840, height: 2160 }
 };
 
-// ICE / STUN / TURN Configuration for zero-download P2P
+// Expanded ICE / STUN / TURN Configuration for Cross-Network Internet Traversal
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
   { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
   { urls: 'stun:global.stun.twilio.com:3478' },
+  { urls: 'stun:stun.services.mozilla.com' },
+  // OpenRelay Public TURN Servers (UDP and TCP)
   {
     urls: 'turn:openrelay.metered.ca:80',
     username: 'openrelayproject',
@@ -55,6 +58,11 @@ const ICE_SERVERS = [
     urls: 'turn:openrelay.metered.ca:443',
     username: 'openrelayproject',
     credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
   }
 ];
 
@@ -62,9 +70,10 @@ const ICE_SERVERS = [
 function initPeer() {
   const randomId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
   peer = new Peer(randomId, {
-    debug: 1,
+    debug: 2,
     config: {
-      iceServers: ICE_SERVERS
+      iceServers: ICE_SERVERS,
+      sdpSemantics: 'unified-plan'
     }
   });
 
@@ -93,6 +102,9 @@ function initPeer() {
 
   peer.on('error', (err) => {
     console.error('PeerJS Error:', err);
+    if (err.type === 'peer-unavailable') {
+      alert('Der eingegebene Code wurde nicht gefunden. Bitte überprüfe den Code deines Freundes.');
+    }
     updateStatus(false, 'Fehler: ' + err.type);
   });
 }
@@ -366,10 +378,13 @@ volumeRange.addEventListener('input', (e) => {
 });
 
 fullscreenBtn.addEventListener('click', () => {
+  const container = document.querySelector('.main-content');
   if (!document.fullscreenElement) {
-    remoteVideo.requestFullscreen().catch(err => {
-      alert(`Vollbild-Fehler: ${err.message}`);
-    });
+    if (container.requestFullscreen) {
+      container.requestFullscreen();
+    } else if (remoteVideo.requestFullscreen) {
+      remoteVideo.requestFullscreen();
+    }
   } else {
     document.exitFullscreen();
   }

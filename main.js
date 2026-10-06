@@ -1,6 +1,9 @@
 const { app, BrowserWindow, ipcMain, desktopCapturer, session } = require('electron');
 const path = require('path');
 
+// Disable GPU Hardware Acceleration to prevent green screen video rendering artifacts
+app.disableHardwareAcceleration();
+
 let mainWindow;
 let selectedSourceId = null;
 
