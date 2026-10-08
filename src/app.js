@@ -100,6 +100,16 @@ function initPeer() {
     setupCallHandlers(call);
   });
 
+  peer.on('disconnected', () => {
+    console.warn('Peer disconnected from signaling server, attempting reconnect...');
+    updateStatus(false, 'Verbindung unterbrochen (Verbinde neu...)');
+    try {
+      peer.reconnect();
+    } catch (e) {
+      console.error('Reconnect failed:', e);
+    }
+  });
+
   peer.on('error', (err) => {
     console.error('PeerJS Error:', err);
     if (err.type === 'peer-unavailable') {
@@ -122,6 +132,7 @@ function setupCallHandlers(call) {
       console.log('ICE Connection State:', state);
       if (state === 'connected' || state === 'completed') {
         updateStatus(true, 'Verbunden (Stream Aktiv)');
+        applyHighQualityBitrate(call.peerConnection);
       } else if (state === 'failed' || state === 'disconnected') {
         updateStatus(false, 'Verbindung getrennt');
       }
@@ -135,6 +146,25 @@ function setupCallHandlers(call) {
   call.on('error', (err) => {
     console.error('Call Error:', err);
   });
+}
+
+function applyHighQualityBitrate(peerConnection) {
+  if (!peerConnection) return;
+  try {
+    const senders = peerConnection.getSenders();
+    senders.forEach(sender => {
+      if (sender.track && sender.track.kind === 'video') {
+        const parameters = sender.getParameters();
+        if (!parameters.encodings) {
+          parameters.encodings = [{}];
+        }
+        parameters.encodings[0].maxBitrate = 15000000; // 15 Mbps for ultra crisp 1080p/4K 60/120fps
+        sender.setParameters(parameters).catch(e => console.warn('Bitrate setting ignored:', e));
+      }
+    });
+  } catch (e) {
+    console.warn('Could not adjust video bitrate parameters:', e);
+  }
 }
 
 function setupDataConnection(conn) {
