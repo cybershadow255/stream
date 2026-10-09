@@ -4,13 +4,18 @@ let currentCall = null;
 let localStream = null;
 let micStream = null;
 let isMicMuted = false;
+let isDeafened = false;
 let connectedPeerId = null;
 
 // DOM Elements
 const myPeerIdEl = document.getElementById('my-peer-id');
 const copyIdBtn = document.getElementById('copy-id-btn');
+const customIdInput = document.getElementById('custom-id-input');
+const setCustomIdBtn = document.getElementById('set-custom-id-btn');
 const remoteIdInput = document.getElementById('remote-id-input');
 const connectBtn = document.getElementById('connect-btn');
+const addFriendBtn = document.getElementById('add-friend-btn');
+const friendsListEl = document.getElementById('friends-list');
 const connectionStatus = document.getElementById('connection-status');
 
 const resSelect = document.getElementById('res-select');
@@ -18,6 +23,7 @@ const fpsSelect = document.getElementById('fps-select');
 const startShareBtn = document.getElementById('start-share-btn');
 const stopShareBtn = document.getElementById('stop-share-btn');
 const toggleMicBtn = document.getElementById('toggle-mic-btn');
+const toggleDeafenBtn = document.getElementById('toggle-deafen-btn');
 const volumeRange = document.getElementById('volume-range');
 
 const remoteVideo = document.getElementById('remote-video');
@@ -66,10 +72,96 @@ const ICE_SERVERS = [
   }
 ];
 
+// Friends Storage Logic
+function getSavedFriends() {
+  try {
+    const data = localStorage.getItem('streamshare_friends');
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveFriends(friends) {
+  try {
+    localStorage.setItem('streamshare_friends', JSON.stringify(friends));
+  } catch (e) {
+    console.error('Failed to save friends:', e);
+  }
+}
+
+function renderFriendsList() {
+  const friends = getSavedFriends();
+  friendsListEl.innerHTML = '';
+
+  if (friends.length === 0) {
+    friendsListEl.innerHTML = '<p class="empty-text">Noch keine Freunde gespeichert.</p>';
+    return;
+  }
+
+  friends.forEach((friendId) => {
+    const item = document.createElement('div');
+    item.className = 'friend-item';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'friend-name';
+    nameSpan.textContent = friendId;
+    nameSpan.title = friendId;
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'friend-actions';
+
+    const connectFriendBtn = document.createElement('button');
+    connectFriendBtn.className = 'btn primary-btn btn-sm';
+    connectFriendBtn.textContent = 'Verbinden';
+    connectFriendBtn.addEventListener('click', () => {
+      remoteIdInput.value = friendId;
+      connectToPeer(friendId);
+    });
+
+    const deleteFriendBtn = document.createElement('button');
+    deleteFriendBtn.className = 'btn danger-btn btn-sm';
+    deleteFriendBtn.textContent = '🗑️';
+    deleteFriendBtn.title = 'Freund entfernen';
+    deleteFriendBtn.addEventListener('click', () => {
+      removeFriend(friendId);
+    });
+
+    actionsDiv.appendChild(connectFriendBtn);
+    actionsDiv.appendChild(deleteFriendBtn);
+    item.appendChild(nameSpan);
+    item.appendChild(actionsDiv);
+    friendsListEl.appendChild(item);
+  });
+}
+
+function addFriend(friendId) {
+  if (!friendId) return;
+  const friends = getSavedFriends();
+  if (!friends.includes(friendId)) {
+    friends.push(friendId);
+    saveFriends(friends);
+    renderFriendsList();
+  }
+}
+
+function removeFriend(friendId) {
+  let friends = getSavedFriends();
+  friends = friends.filter(id => id !== friendId);
+  saveFriends(friends);
+  renderFriendsList();
+}
+
 // Initialize PeerJS Connection
-function initPeer() {
-  const randomId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
-  peer = new Peer(randomId, {
+function initPeer(customId = null) {
+  if (peer) {
+    peer.destroy();
+  }
+
+  const savedCustomId = localStorage.getItem('streamshare_custom_id');
+  const peerIdToUse = customId || savedCustomId || ('stream-' + Math.floor(100000 + Math.random() * 900000));
+
+  peer = new Peer(peerIdToUse, {
     debug: 2,
     config: {
       iceServers: ICE_SERVERS,
@@ -79,6 +171,9 @@ function initPeer() {
 
   peer.on('open', (id) => {
     myPeerIdEl.textContent = id;
+    if (customId) {
+      localStorage.setItem('streamshare_custom_id', customId);
+    }
   });
 
   peer.on('connection', (conn) => {
@@ -104,6 +199,8 @@ function initPeer() {
     console.error('PeerJS Error:', err);
     if (err.type === 'peer-unavailable') {
       alert('Der eingegebene Code wurde nicht gefunden. Bitte überprüfe den Code deines Freundes.');
+    } else if (err.type === 'unavailable-id') {
+      alert('Diese Eigene ID ist bereits vergeben. Bitte wähle einen anderen Namen.');
     }
     updateStatus(false, 'Fehler: ' + err.type);
   });
@@ -167,6 +264,17 @@ function setupDataConnection(conn) {
   });
 }
 
+function connectToPeer(remoteId) {
+  if (!remoteId) {
+    alert('Bitte gib einen gültigen Code deines Freundes ein.');
+    return;
+  }
+
+  updateStatus(true, 'Verbinde...');
+  const conn = peer.connect(remoteId);
+  setupDataConnection(conn);
+}
+
 function createEmptyStream() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = ctx.createOscillator();
@@ -194,21 +302,34 @@ copyIdBtn.addEventListener('click', () => {
   }
 });
 
+setCustomIdBtn.addEventListener('click', () => {
+  const customId = customIdInput.value.trim();
+  if (customId) {
+    initPeer(customId);
+    customIdInput.value = '';
+  } else {
+    alert('Bitte gib eine gültige Raum-ID ein.');
+  }
+});
+
 connectBtn.addEventListener('click', () => {
   const remoteId = remoteIdInput.value.trim();
-  if (!remoteId) {
-    alert('Bitte gib einen gültigen Code deines Freundes ein.');
-    return;
-  }
+  connectToPeer(remoteId);
+});
 
-  updateStatus(true, 'Verbinde...');
-  const conn = peer.connect(remoteId);
-  setupDataConnection(conn);
+addFriendBtn.addEventListener('click', () => {
+  const friendId = remoteIdInput.value.trim();
+  if (friendId) {
+    addFriend(friendId);
+    alert(`Freund "${friendId}" gespeichert!`);
+  } else {
+    alert('Bitte gib erst den Code deines Freundes ein.');
+  }
 });
 
 function displayRemoteStream(stream, isLocal = false) {
   remoteVideo.srcObject = stream;
-  remoteVideo.muted = isLocal;
+  remoteVideo.muted = isLocal || isDeafened;
   videoPlaceholder.classList.add('hidden');
   statsOverlay.classList.remove('hidden');
 
@@ -373,6 +494,15 @@ toggleMicBtn.addEventListener('click', () => {
   }
 });
 
+toggleDeafenBtn.addEventListener('click', () => {
+  isDeafened = !isDeafened;
+  if (remoteVideo.srcObject) {
+    remoteVideo.muted = isDeafened;
+  }
+  toggleDeafenBtn.textContent = isDeafened ? '🎧 Ton: Stumm' : '🎧 Ton: An';
+  toggleDeafenBtn.className = isDeafened ? 'btn danger-btn' : 'btn secondary-btn';
+});
+
 volumeRange.addEventListener('input', (e) => {
   remoteVideo.volume = e.target.value / 100;
 });
@@ -390,4 +520,6 @@ fullscreenBtn.addEventListener('click', () => {
   }
 });
 
+// Initialize App
+renderFriendsList();
 initPeer();

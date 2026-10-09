@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StreamShare - 4K 120FPS Screen Share</title>
+  <title>StreamShare - 4K 144FPS Screen Share</title>
   <link rel="stylesheet" href="styles.css">
   <script src="peerjs.min.js"></script>
 </head>
@@ -31,14 +31,33 @@
           </div>
         </div>
 
+        <div class="input-group custom-id-row">
+          <label for="custom-id-input">Eigene ID / Raumname festlegen:</label>
+          <div class="inline-input">
+            <input type="text" id="custom-id-input" placeholder="z. B. alex-raum">
+            <button id="set-custom-id-btn" class="btn secondary-btn">Setzen</button>
+          </div>
+        </div>
+
         <div class="divider">ODER</div>
 
         <div class="input-group">
           <label for="remote-id-input">Freund-Code eingeben:</label>
-          <input type="text" id="remote-id-input" placeholder="z. B. stream-98234">
-          <button id="connect-btn" class="btn primary-btn">Verbinden</button>
+          <input type="text" id="remote-id-input" placeholder="z. B. max-raum">
+          <div class="btn-group">
+            <button id="connect-btn" class="btn primary-btn">Verbinden</button>
+            <button id="add-friend-btn" class="btn secondary-btn" title="Freund speichern">➕ Freund</button>
+          </div>
         </div>
         <div id="connection-status" class="status-badge disconnected">Getrennt</div>
+      </div>
+
+      <!-- Saved Friends Section -->
+      <div class="card friends-card">
+        <h3>Gespeicherte Freunde</h3>
+        <div id="friends-list" class="friends-list">
+          <p class="empty-text">Noch keine Freunde gespeichert.</p>
+        </div>
       </div>
 
       <!-- Controls Section -->
@@ -60,7 +79,8 @@
           <select id="fps-select" class="select-input">
             <option value="30">30 FPS</option>
             <option value="60" selected>60 FPS</option>
-            <option value="120">120 FPS (Ultra Smooth)</option>
+            <option value="120">120 FPS (Smooth)</option>
+            <option value="144">144 FPS (Ultra High-FPS)</option>
           </select>
         </div>
 
@@ -70,8 +90,9 @@
         </div>
 
         <div class="audio-controls">
-          <div class="control-row">
+          <div class="control-row-grid">
             <button id="toggle-mic-btn" class="btn secondary-btn">🎤 Mikro: An</button>
+            <button id="toggle-deafen-btn" class="btn secondary-btn">🎧 Ton: An</button>
           </div>
           <div class="control-row">
             <label>Stream Lautstärke:</label>
