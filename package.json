@@ -1,11 +1,11 @@
 {
   "name": "stream-share-app",
   "version": "1.0.0",
-  "description": "High performance 1080p/4K 60/120fps screen sharing and call desktop app",
+  "description": "High performance 1080p/4K 60/120/144fps screen sharing and call desktop app",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win nsis"
+    "build": "electron-builder --win portable"
   },
   "keywords": [
     "webrtc",
@@ -25,7 +25,8 @@
     "appId": "com.streamshare.app",
     "productName": "StreamShare",
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "signAndEditExecutable": false
     },
     "directories": {
       "output": "dist"
