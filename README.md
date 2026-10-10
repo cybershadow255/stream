@@ -34,8 +34,15 @@ Die fertige `.exe` befindet sich danach im Ordner `dist/`.
 ---
 
 ## 🎮 Anwendungsschritte
+
+### 1. Verbindung aufbauen & Freundeliste
 1. Starte StreamShare auf beiden Computern.
 2. Kopiere den oben gezeigten **Raum-Code** (z.B. `stream-982341`) und schicke ihn deinem Freund.
-3. Dein Freund gibt den Code bei **Freund-Code eingeben** ein und klickt auf **Verbinden**.
-4. Sobald „Verbunden“ erscheint, klickt einer von euch auf **Bildschirm teilen**, wählt die gewünschte Auflösung (z.B. 1080p / 4K) & FPS (z.B. 60 / 120 FPS) und wählt den Bildschirm aus.
-5. Das Bild erscheint sofort beim Partner in höchster Flüssigkeit!
+3. **Direkt verbinden:** Dein Freund gibt den Code bei **Freund-Code eingeben** ein und klickt auf **Verbinden**.
+4. **Freund speichern:** Gib unter **Freundeliste** den Namen deines Freundes (z.B. „Alex“) und seinen Code ein und klicke auf **+ Freund hinzufügen**. Ab jetzt kannst du dich jederzeit per Klick auf das 🔗-Symbol direkt verbinden!
+
+### 2. Bildschirm & Mikrofon übertragen
+1. Sobald „Verbunden“ erscheint, wähle deine gewünschte **Auflösung** (720p, 1080p Full HD, 1440p 2K oder 2160p 4K) und **Bildrate** (30, 60 oder 120 FPS).
+2. Klicke auf **Bildschirm teilen** und wähle den Monitor oder das Anwendungsfenster aus.
+3. Der Stream wird in voller Flüssigkeit und ohne künstliche Drosselung direkt per WebRTC (P2P) an deinen Freund übertragen!
+4. Über die Audio-Steuerung kannst du dein Mikrofon stummschalten oder die Lautstärke des empfangenen Streams anpassen.

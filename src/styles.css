@@ -185,6 +185,65 @@ input[type="text"]:focus, .select-input:focus {
   color: #23a55a;
 }
 
+/* Friends Section Styling */
+.add-friend-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #1e1f22;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid #3f4147;
+}
+
+.friend-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.friend-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #f2f3f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.friend-code {
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: #949ba4;
+}
+
+.friend-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border-radius: 3px;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
