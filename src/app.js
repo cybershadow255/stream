@@ -31,6 +31,11 @@ const sourceModal = document.getElementById('source-modal');
 const sourceList = document.getElementById('source-list');
 const closeModalBtn = document.getElementById('close-modal-btn');
 
+const friendNameInput = document.getElementById('friend-name-input');
+const friendCodeInput = document.getElementById('friend-code-input');
+const addFriendBtn = document.getElementById('add-friend-btn');
+const friendsListEl = document.getElementById('friends-list');
+
 // Resolution Map
 const RESOLUTION_MAP = {
   '720': { width: 1280, height: 720 },
@@ -194,17 +199,109 @@ copyIdBtn.addEventListener('click', () => {
   }
 });
 
-connectBtn.addEventListener('click', () => {
-  const remoteId = remoteIdInput.value.trim();
+function connectToPeer(remoteId) {
   if (!remoteId) {
     alert('Bitte gib einen gültigen Code deines Freundes ein.');
     return;
   }
-
-  updateStatus(true, 'Verbinde...');
+  remoteIdInput.value = remoteId;
+  updateStatus(true, 'Verbinde mit ' + remoteId + '...');
   const conn = peer.connect(remoteId);
   setupDataConnection(conn);
+}
+
+connectBtn.addEventListener('click', () => {
+  const remoteId = remoteIdInput.value.trim();
+  connectToPeer(remoteId);
 });
+
+// Friends List Management
+function getSavedFriends() {
+  try {
+    const data = localStorage.getItem('streamshare_friends');
+    return data ? JSON.parse(data) : [];
+  } catch (e) {
+    console.warn('Fehler beim Laden der Freundeliste:', e);
+    return [];
+  }
+}
+
+function saveFriends(friends) {
+  try {
+    localStorage.setItem('streamshare_friends', JSON.stringify(friends));
+  } catch (e) {
+    console.warn('Fehler beim Speichern der Freundeliste:', e);
+  }
+}
+
+function renderFriendsList() {
+  const friends = getSavedFriends();
+  friendsListEl.innerHTML = '';
+
+  if (friends.length === 0) {
+    friendsListEl.innerHTML = '<p style="font-size:0.8rem; color:#80848e; text-align:center;">Keine Freunde gespeichert.</p>';
+    return;
+  }
+
+  friends.forEach((friend, index) => {
+    const item = document.createElement('div');
+    item.className = 'friend-item';
+
+    item.innerHTML = `
+      <div class="friend-info">
+        <span class="friend-name">${escapeHtml(friend.name)}</span>
+        <span class="friend-code">${escapeHtml(friend.code)}</span>
+      </div>
+      <div class="friend-actions">
+        <button class="btn primary-btn btn-sm connect-friend-btn" title="Verbinden">🔗</button>
+        <button class="btn danger-btn btn-sm delete-friend-btn" title="Löschen">✕</button>
+      </div>
+    `;
+
+    item.querySelector('.connect-friend-btn').addEventListener('click', () => {
+      connectToPeer(friend.code);
+    });
+
+    item.querySelector('.delete-friend-btn').addEventListener('click', () => {
+      deleteFriend(index);
+    });
+
+    friendsListEl.appendChild(item);
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function deleteFriend(index) {
+  const friends = getSavedFriends();
+  friends.splice(index, 1);
+  saveFriends(friends);
+  renderFriendsList();
+}
+
+addFriendBtn.addEventListener('click', () => {
+  const name = friendNameInput.value.trim();
+  const code = friendCodeInput.value.trim();
+
+  if (!name || !code) {
+    alert('Bitte gib sowohl einen Namen als auch den Code deines Freundes ein.');
+    return;
+  }
+
+  const friends = getSavedFriends();
+  friends.push({ name, code });
+  saveFriends(friends);
+
+  friendNameInput.value = '';
+  friendCodeInput.value = '';
+
+  renderFriendsList();
+});
+
+// Render friends list on init
+renderFriendsList();
 
 function displayRemoteStream(stream, isLocal = false) {
   remoteVideo.srcObject = stream;
