@@ -31,6 +31,103 @@ const sourceModal = document.getElementById('source-modal');
 const sourceList = document.getElementById('source-list');
 const closeModalBtn = document.getElementById('close-modal-btn');
 
+const friendNameInput = document.getElementById('friend-name-input');
+const friendIdInput = document.getElementById('friend-id-input');
+const addFriendBtn = document.getElementById('add-friend-btn');
+const friendsListEl = document.getElementById('friends-list');
+
+// Friends persistence
+let friends = [];
+
+function loadFriends() {
+  try {
+    const stored = localStorage.getItem('streamshare_friends');
+    if (stored) {
+      friends = JSON.parse(stored);
+    }
+  } catch (err) {
+    console.error('Failed to load friends from localStorage:', err);
+  }
+  renderFriends();
+}
+
+function saveFriends() {
+  try {
+    localStorage.setItem('streamshare_friends', JSON.stringify(friends));
+  } catch (err) {
+    console.error('Failed to save friends to localStorage:', err);
+  }
+  renderFriends();
+}
+
+function renderFriends() {
+  friendsListEl.innerHTML = '';
+  if (friends.length === 0) {
+    friendsListEl.innerHTML = '<div class="empty-friends">Noch keine Freunde gespeichert.</div>';
+    return;
+  }
+
+  friends.forEach((friend, index) => {
+    const item = document.createElement('div');
+    item.className = 'friend-item';
+
+    const info = document.createElement('div');
+    info.className = 'friend-info';
+    info.innerHTML = `
+      <span class="friend-name">${escapeHtml(friend.name)}</span>
+      <span class="friend-id">${escapeHtml(friend.id)}</span>
+    `;
+
+    const actions = document.createElement('div');
+    actions.className = 'friend-actions';
+
+    const connectFriendBtn = document.createElement('button');
+    connectFriendBtn.className = 'btn primary-btn btn-small';
+    connectFriendBtn.textContent = 'Anrufen';
+    connectFriendBtn.addEventListener('click', () => {
+      remoteIdInput.value = friend.id;
+      connectToPeer(friend.id);
+    });
+
+    const removeFriendBtn = document.createElement('button');
+    removeFriendBtn.className = 'btn danger-btn btn-small';
+    removeFriendBtn.textContent = '✕';
+    removeFriendBtn.title = 'Freund entfernen';
+    removeFriendBtn.addEventListener('click', () => {
+      friends.splice(index, 1);
+      saveFriends();
+    });
+
+    actions.appendChild(connectFriendBtn);
+    actions.appendChild(removeFriendBtn);
+
+    item.appendChild(info);
+    item.appendChild(actions);
+    friendsListEl.appendChild(item);
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+if (addFriendBtn) {
+  addFriendBtn.addEventListener('click', () => {
+    const name = friendNameInput.value.trim();
+    const id = friendIdInput.value.trim();
+    if (!name || !id) {
+      alert('Bitte sowohl einen Namen als auch den Raum-Code eingeben.');
+      return;
+    }
+    friends.push({ name, id });
+    saveFriends();
+    friendNameInput.value = '';
+    friendIdInput.value = '';
+  });
+}
+
 // Resolution Map
 const RESOLUTION_MAP = {
   '720': { width: 1280, height: 720 },
@@ -194,8 +291,7 @@ copyIdBtn.addEventListener('click', () => {
   }
 });
 
-connectBtn.addEventListener('click', () => {
-  const remoteId = remoteIdInput.value.trim();
+function connectToPeer(remoteId) {
   if (!remoteId) {
     alert('Bitte gib einen gültigen Code deines Freundes ein.');
     return;
@@ -204,6 +300,11 @@ connectBtn.addEventListener('click', () => {
   updateStatus(true, 'Verbinde...');
   const conn = peer.connect(remoteId);
   setupDataConnection(conn);
+}
+
+connectBtn.addEventListener('click', () => {
+  const remoteId = remoteIdInput.value.trim();
+  connectToPeer(remoteId);
 });
 
 function displayRemoteStream(stream, isLocal = false) {
@@ -391,3 +492,4 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 initPeer();
+loadFriends();

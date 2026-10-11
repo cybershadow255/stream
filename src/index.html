@@ -34,11 +34,24 @@
         <div class="divider">ODER</div>
 
         <div class="input-group">
-          <label for="remote-id-input">Freund-Code eingeben:</label>
+          <label for="remote-id-input">Freund-Code / Raum-Code eingeben:</label>
           <input type="text" id="remote-id-input" placeholder="z. B. stream-98234">
           <button id="connect-btn" class="btn primary-btn">Verbinden</button>
         </div>
         <div id="connection-status" class="status-badge disconnected">Getrennt</div>
+      </div>
+
+      <!-- Friends List Section -->
+      <div class="card friends-card">
+        <h3>Freunde-Liste</h3>
+        <div class="input-group">
+          <input type="text" id="friend-name-input" placeholder="Name (z. B. Alex)">
+          <input type="text" id="friend-id-input" placeholder="Code (z. B. stream-123456)">
+          <button id="add-friend-btn" class="btn secondary-btn">+ Freund hinzufügen</button>
+        </div>
+        <div id="friends-list" class="friends-list">
+          <div class="empty-friends">Noch keine Freunde gespeichert.</div>
+        </div>
       </div>
 
       <!-- Controls Section -->
