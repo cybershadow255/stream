@@ -185,6 +185,66 @@ input[type="text"]:focus, .select-input:focus {
   color: #23a55a;
 }
 
+/* Friends List Styling */
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  margin-top: 4px;
+}
+
+.empty-friends {
+  font-size: 0.8rem;
+  color: #80848e;
+  font-style: italic;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #1e1f22;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid #3f4147;
+}
+
+.friend-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.friend-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f2f3f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.friend-id {
+  font-size: 0.75rem;
+  color: #949ba4;
+  font-family: monospace;
+}
+
+.friend-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-small {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border-radius: 3px;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
