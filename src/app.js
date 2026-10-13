@@ -31,6 +31,117 @@ const sourceModal = document.getElementById('source-modal');
 const sourceList = document.getElementById('source-list');
 const closeModalBtn = document.getElementById('close-modal-btn');
 
+const friendNameInput = document.getElementById('friend-name-input');
+const friendIdInput = document.getElementById('friend-id-input');
+const addFriendBtn = document.getElementById('add-friend-btn');
+const friendsListEl = document.getElementById('friends-list');
+
+// Friends persistence via localStorage
+const FRIENDS_STORAGE_KEY = 'streamshare_friends';
+
+function getFriends() {
+  try {
+    const raw = localStorage.getItem(FRIENDS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.error('Error loading friends from localStorage:', e);
+    return [];
+  }
+}
+
+function saveFriends(friends) {
+  try {
+    localStorage.setItem(FRIENDS_STORAGE_KEY, JSON.stringify(friends));
+  } catch (e) {
+    console.error('Error saving friends to localStorage:', e);
+  }
+}
+
+function addFriend(name, peerId) {
+  const friends = getFriends();
+  const newFriend = {
+    id: Date.now().toString(),
+    name: name.trim(),
+    peerId: peerId.trim()
+  };
+  friends.push(newFriend);
+  saveFriends(friends);
+  return newFriend;
+}
+
+function removeFriend(id) {
+  const friends = getFriends().filter(f => f.id !== id);
+  saveFriends(friends);
+}
+
+function renderFriendsList() {
+  if (!friendsListEl) return;
+  const friends = getFriends();
+  friendsListEl.innerHTML = '';
+
+  if (friends.length === 0) {
+    friendsListEl.innerHTML = '<div class="empty-friends">Noch keine Freunde hinzugefügt</div>';
+    return;
+  }
+
+  friends.forEach(friend => {
+    const item = document.createElement('div');
+    item.className = 'friend-item';
+
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'friend-info';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'friend-name';
+    nameSpan.textContent = friend.name;
+
+    const idSpan = document.createElement('span');
+    idSpan.className = 'friend-id';
+    idSpan.textContent = friend.peerId;
+
+    infoDiv.appendChild(nameSpan);
+    infoDiv.appendChild(idSpan);
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'friend-actions';
+
+    const connectFriendBtn = document.createElement('button');
+    connectFriendBtn.className = 'btn primary-btn btn-small';
+    connectFriendBtn.textContent = 'Anrufen';
+    connectFriendBtn.addEventListener('click', () => {
+      remoteIdInput.value = friend.peerId;
+      connectToPeer(friend.peerId);
+    });
+
+    const deleteFriendBtn = document.createElement('button');
+    deleteFriendBtn.className = 'btn danger-btn btn-small';
+    deleteFriendBtn.textContent = '✕';
+    deleteFriendBtn.title = 'Entfernen';
+    deleteFriendBtn.addEventListener('click', () => {
+      removeFriend(friend.id);
+      renderFriendsList();
+    });
+
+    actionsDiv.appendChild(connectFriendBtn);
+    actionsDiv.appendChild(deleteFriendBtn);
+
+    item.appendChild(infoDiv);
+    item.appendChild(actionsDiv);
+
+    friendsListEl.appendChild(item);
+  });
+}
+
+function connectToPeer(peerId) {
+  if (!peerId) {
+    alert('Bitte gib einen gültigen Code deines Freundes ein.');
+    return;
+  }
+  updateStatus(true, 'Verbinde...');
+  const conn = peer.connect(peerId);
+  setupDataConnection(conn);
+}
+
 // Resolution Map
 const RESOLUTION_MAP = {
   '720': { width: 1280, height: 720 },
@@ -196,15 +307,25 @@ copyIdBtn.addEventListener('click', () => {
 
 connectBtn.addEventListener('click', () => {
   const remoteId = remoteIdInput.value.trim();
-  if (!remoteId) {
-    alert('Bitte gib einen gültigen Code deines Freundes ein.');
-    return;
-  }
-
-  updateStatus(true, 'Verbinde...');
-  const conn = peer.connect(remoteId);
-  setupDataConnection(conn);
+  connectToPeer(remoteId);
 });
+
+if (addFriendBtn) {
+  addFriendBtn.addEventListener('click', () => {
+    const name = friendNameInput.value.trim();
+    const peerId = friendIdInput.value.trim();
+
+    if (!name || !peerId) {
+      alert('Bitte gib sowohl Name als auch Code des Freundes ein.');
+      return;
+    }
+
+    addFriend(name, peerId);
+    friendNameInput.value = '';
+    friendIdInput.value = '';
+    renderFriendsList();
+  });
+}
 
 function displayRemoteStream(stream, isLocal = false) {
   remoteVideo.srcObject = stream;
@@ -391,3 +512,4 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 initPeer();
+renderFriendsList();
