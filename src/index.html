@@ -31,7 +31,7 @@
           </div>
         </div>
 
-        <div class="divider">ODER</div>
+        <div class="divider">ODER DIREKT VERBINDEN</div>
 
         <div class="input-group">
           <label for="remote-id-input">Freund-Code eingeben:</label>
@@ -39,6 +39,19 @@
           <button id="connect-btn" class="btn primary-btn">Verbinden</button>
         </div>
         <div id="connection-status" class="status-badge disconnected">Getrennt</div>
+      </div>
+
+      <!-- Friends List Section -->
+      <div class="card friends-card">
+        <h3>Freundesliste</h3>
+        <div class="friend-input-container">
+          <input type="text" id="friend-name-input" placeholder="Name (z.B. Alex)">
+          <input type="text" id="friend-id-input" placeholder="Code (z.B. stream-123456)">
+          <button id="add-friend-btn" class="btn secondary-btn">+ Freund hinzufügen</button>
+        </div>
+        <div id="friends-list" class="friends-list">
+          <!-- Dynamically populated friends -->
+        </div>
       </div>
 
       <!-- Controls Section -->
