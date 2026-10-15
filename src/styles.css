@@ -66,6 +66,81 @@ body {
   gap: 6px;
 }
 
+/* Friends List Styling */
+.row-input {
+  display: flex;
+  flex-direction: row;
+  gap: 6px;
+}
+
+.row-input input {
+  font-size: 0.8rem;
+  padding: 6px 8px;
+}
+
+.row-input button {
+  padding: 6px 12px;
+}
+
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.no-friends {
+  font-size: 0.8rem;
+  color: #80848e;
+  font-style: italic;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #1e1f22;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid #3f4147;
+}
+
+.friend-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.friend-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #f2f3f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.friend-code {
+  font-size: 0.75rem;
+  color: #23a55a;
+  font-family: monospace;
+}
+
+.friend-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+}
+
 .input-group label, .form-group label {
   font-size: 0.825rem;
   color: #b5bac1;
