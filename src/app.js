@@ -13,6 +13,93 @@ const remoteIdInput = document.getElementById('remote-id-input');
 const connectBtn = document.getElementById('connect-btn');
 const connectionStatus = document.getElementById('connection-status');
 
+const friendNameInput = document.getElementById('friend-name-input');
+const friendIdInput = document.getElementById('friend-id-input');
+const addFriendBtn = document.getElementById('add-friend-btn');
+const friendsListEl = document.getElementById('friends-list');
+
+// Friends persistence
+let friends = [];
+
+function loadFriends() {
+  try {
+    const saved = localStorage.getItem('streamshare_friends');
+    if (saved) {
+      friends = JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Failed to load friends from localStorage', e);
+  }
+  renderFriends();
+}
+
+function saveFriends() {
+  try {
+    localStorage.setItem('streamshare_friends', JSON.stringify(friends));
+  } catch (e) {
+    console.error('Failed to save friends to localStorage', e);
+  }
+}
+
+function renderFriends() {
+  if (!friendsListEl) return;
+  friendsListEl.innerHTML = '';
+  if (friends.length === 0) {
+    friendsListEl.innerHTML = '<div class="no-friends">Noch keine Freunde gespeichert.</div>';
+    return;
+  }
+
+  friends.forEach((friend, index) => {
+    const item = document.createElement('div');
+    item.className = 'friend-item';
+    item.innerHTML = `
+      <div class="friend-info">
+        <span class="friend-name">${escapeHtml(friend.name)}</span>
+        <span class="friend-code">${escapeHtml(friend.id)}</span>
+      </div>
+      <div class="friend-actions">
+        <button class="btn btn-sm primary-btn connect-friend-btn" title="Verbinden">📞</button>
+        <button class="btn btn-sm danger-btn delete-friend-btn" title="Löschen">✕</button>
+      </div>
+    `;
+
+    item.querySelector('.connect-friend-btn').addEventListener('click', () => {
+      remoteIdInput.value = friend.id;
+      connectToPeer(friend.id);
+    });
+
+    item.querySelector('.delete-friend-btn').addEventListener('click', () => {
+      friends.splice(index, 1);
+      saveFriends();
+      renderFriends();
+    });
+
+    friendsListEl.appendChild(item);
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+if (addFriendBtn) {
+  addFriendBtn.addEventListener('click', () => {
+    const name = friendNameInput.value.trim();
+    const id = friendIdInput.value.trim();
+    if (!name || !id) {
+      alert('Bitte gib einen Namen und den Code deines Freundes ein.');
+      return;
+    }
+    friends.push({ name, id });
+    saveFriends();
+    renderFriends();
+    friendNameInput.value = '';
+    friendIdInput.value = '';
+  });
+}
+
 const resSelect = document.getElementById('res-select');
 const fpsSelect = document.getElementById('fps-select');
 const startShareBtn = document.getElementById('start-share-btn');
@@ -66,10 +153,17 @@ const ICE_SERVERS = [
   }
 ];
 
-// Initialize PeerJS Connection
+// Initialize PeerJS Connection with persisted Peer ID
 function initPeer() {
-  const randomId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
-  peer = new Peer(randomId, {
+  loadFriends();
+
+  let storedId = localStorage.getItem('streamshare_my_id');
+  if (!storedId) {
+    storedId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
+    localStorage.setItem('streamshare_my_id', storedId);
+  }
+
+  peer = new Peer(storedId, {
     debug: 2,
     config: {
       iceServers: ICE_SERVERS,
@@ -194,16 +288,20 @@ copyIdBtn.addEventListener('click', () => {
   }
 });
 
-connectBtn.addEventListener('click', () => {
-  const remoteId = remoteIdInput.value.trim();
+function connectToPeer(remoteId) {
   if (!remoteId) {
     alert('Bitte gib einen gültigen Code deines Freundes ein.');
     return;
   }
 
-  updateStatus(true, 'Verbinde...');
+  updateStatus(true, 'Verbinde mit ' + remoteId + '...');
   const conn = peer.connect(remoteId);
   setupDataConnection(conn);
+}
+
+connectBtn.addEventListener('click', () => {
+  const remoteId = remoteIdInput.value.trim();
+  connectToPeer(remoteId);
 });
 
 function displayRemoteStream(stream, isLocal = false) {
@@ -320,6 +418,13 @@ async function startScreenShare() {
 
 function handleStreamCaptured(stream) {
   localStream = stream;
+
+  // Set high quality WebRTC contentHint for screen sharing
+  const videoTrack = stream.getVideoTracks()[0];
+  if (videoTrack && 'contentHint' in videoTrack) {
+    videoTrack.contentHint = 'detail';
+  }
+
   displayRemoteStream(stream, true);
 
   startShareBtn.classList.add('hidden');
@@ -340,7 +445,7 @@ function handleStreamCaptured(stream) {
     setupCallHandlers(currentCall);
   }
 
-  stream.getVideoTracks()[0].onended = () => {
+  videoTrack.onended = () => {
     stopScreenShare();
   };
 }
