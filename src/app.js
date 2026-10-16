@@ -5,6 +5,7 @@ let localStream = null;
 let micStream = null;
 let isMicMuted = false;
 let connectedPeerId = null;
+let friendsList = [];
 
 // DOM Elements
 const myPeerIdEl = document.getElementById('my-peer-id');
@@ -12,6 +13,14 @@ const copyIdBtn = document.getElementById('copy-id-btn');
 const remoteIdInput = document.getElementById('remote-id-input');
 const connectBtn = document.getElementById('connect-btn');
 const connectionStatus = document.getElementById('connection-status');
+
+const friendsListEl = document.getElementById('friends-list');
+const addFriendBtn = document.getElementById('add-friend-btn');
+const addFriendModal = document.getElementById('add-friend-modal');
+const friendNameInput = document.getElementById('friend-name-input');
+const friendIdInput = document.getElementById('friend-id-input');
+const saveFriendBtn = document.getElementById('save-friend-btn');
+const closeFriendModalBtn = document.getElementById('close-friend-modal-btn');
 
 const resSelect = document.getElementById('res-select');
 const fpsSelect = document.getElementById('fps-select');
@@ -39,7 +48,7 @@ const RESOLUTION_MAP = {
   '2160': { width: 3840, height: 2160 }
 };
 
-// Expanded ICE / STUN / TURN Configuration for Cross-Network Internet Traversal
+// ICE / STUN / TURN Configuration
 const ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -48,7 +57,6 @@ const ICE_SERVERS = [
   { urls: 'stun:stun4.l.google.com:19302' },
   { urls: 'stun:global.stun.twilio.com:3478' },
   { urls: 'stun:stun.services.mozilla.com' },
-  // OpenRelay Public TURN Servers (UDP and TCP)
   {
     urls: 'turn:openrelay.metered.ca:80',
     username: 'openrelayproject',
@@ -66,10 +74,84 @@ const ICE_SERVERS = [
   }
 ];
 
+// Persistent ID & Friends Helper
+function getSavedPeerId() {
+  let id = localStorage.getItem('streamshare_my_id');
+  if (!id) {
+    id = 'stream-' + Math.floor(100000 + Math.random() * 900000);
+    localStorage.setItem('streamshare_my_id', id);
+  }
+  return id;
+}
+
+function loadFriends() {
+  try {
+    const saved = localStorage.getItem('streamshare_friends');
+    friendsList = saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    friendsList = [];
+  }
+  renderFriendsList();
+}
+
+function saveFriends() {
+  localStorage.setItem('streamshare_friends', JSON.stringify(friendsList));
+  renderFriendsList();
+}
+
+function renderFriendsList() {
+  if (!friendsListEl) return;
+  friendsListEl.innerHTML = '';
+
+  if (friendsList.length === 0) {
+    friendsListEl.innerHTML = '<div class="empty-list-msg">Noch keine Freunde hinzugefügt.</div>';
+    return;
+  }
+
+  friendsList.forEach((friend, index) => {
+    const friendItem = document.createElement('div');
+    friendItem.className = 'friend-item';
+
+    const isConnected = connectedPeerId === friend.id;
+
+    friendItem.innerHTML = `
+      <div class="friend-info">
+        <span class="friend-name">${escapeHtml(friend.name)}</span>
+        <span class="friend-id">${escapeHtml(friend.id)}</span>
+      </div>
+      <div class="friend-actions">
+        <button class="btn-connect ${isConnected ? 'active' : ''}" title="${isConnected ? 'Verbunden' : 'Anrufen / Verbinden'}">
+          ${isConnected ? '🟢' : '📞'}
+        </button>
+        <button class="btn-delete" title="Entfernen">🗑️</button>
+      </div>
+    `;
+
+    friendItem.querySelector('.btn-connect').addEventListener('click', () => {
+      connectToPeer(friend.id);
+    });
+
+    friendItem.querySelector('.btn-delete').addEventListener('click', (e) => {
+      e.stopPropagation();
+      friendsList.splice(index, 1);
+      saveFriends();
+    });
+
+    friendsListEl.appendChild(friendItem);
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/[&<>'"]/g,
+    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+  );
+}
+
 // Initialize PeerJS Connection
 function initPeer() {
-  const randomId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
-  peer = new Peer(randomId, {
+  const myId = getSavedPeerId();
+
+  peer = new Peer(myId, {
     debug: 2,
     config: {
       iceServers: ICE_SERVERS,
@@ -79,6 +161,7 @@ function initPeer() {
 
   peer.on('open', (id) => {
     myPeerIdEl.textContent = id;
+    loadFriends();
   });
 
   peer.on('connection', (conn) => {
@@ -107,6 +190,17 @@ function initPeer() {
     }
     updateStatus(false, 'Fehler: ' + err.type);
   });
+}
+
+function connectToPeer(remoteId) {
+  if (!remoteId) {
+    alert('Bitte gib einen gültigen Code deines Freundes ein.');
+    return;
+  }
+
+  updateStatus(true, 'Verbinde...');
+  const conn = peer.connect(remoteId);
+  setupDataConnection(conn);
 }
 
 function setupCallHandlers(call) {
@@ -140,6 +234,7 @@ function setupCallHandlers(call) {
 function setupDataConnection(conn) {
   dataConn = conn;
   connectedPeerId = conn.peer;
+  renderFriendsList();
 
   conn.on('open', () => {
     updateStatus(true, 'Verbunden mit ' + conn.peer);
@@ -158,6 +253,7 @@ function setupDataConnection(conn) {
     updateStatus(false, 'Getrennt');
     connectedPeerId = null;
     dataConn = null;
+    renderFriendsList();
     resetVideoDisplay();
   });
 
@@ -196,14 +292,33 @@ copyIdBtn.addEventListener('click', () => {
 
 connectBtn.addEventListener('click', () => {
   const remoteId = remoteIdInput.value.trim();
-  if (!remoteId) {
-    alert('Bitte gib einen gültigen Code deines Freundes ein.');
+  connectToPeer(remoteId);
+});
+
+// Friends Modal Event Listeners
+addFriendBtn.addEventListener('click', () => {
+  addFriendModal.classList.remove('hidden');
+});
+
+closeFriendModalBtn.addEventListener('click', () => {
+  addFriendModal.classList.add('hidden');
+});
+
+saveFriendBtn.addEventListener('click', () => {
+  const name = friendNameInput.value.trim();
+  const id = friendIdInput.value.trim();
+
+  if (!name || !id) {
+    alert('Bitte gib sowohl Name als auch Raum-Code ein.');
     return;
   }
 
-  updateStatus(true, 'Verbinde...');
-  const conn = peer.connect(remoteId);
-  setupDataConnection(conn);
+  friendsList.push({ name, id });
+  saveFriends();
+
+  friendNameInput.value = '';
+  friendIdInput.value = '';
+  addFriendModal.classList.add('hidden');
 });
 
 function displayRemoteStream(stream, isLocal = false) {
@@ -241,8 +356,8 @@ startShareBtn.addEventListener('click', async () => {
         const item = document.createElement('div');
         item.className = 'source-item';
         item.innerHTML = `
-          <img src="${source.thumbnail}" alt="${source.name}">
-          <span>${source.name}</span>
+          <img src="${source.thumbnail}" alt="${escapeHtml(source.name)}">
+          <span>${escapeHtml(source.name)}</span>
         `;
         item.addEventListener('click', async () => {
           await window.electronAPI.setSelectedSource(source.id);
