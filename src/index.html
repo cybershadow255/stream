@@ -18,11 +18,10 @@
         <h2>StreamShare</h2>
       </div>
 
-      <!-- Room Setup Section -->
+      <!-- Room & Identity Setup Section -->
       <div class="card room-card">
-        <h3>Raum-Verbindung</h3>
+        <h3>Deine ID</h3>
         <div class="input-group">
-          <label>Deine ID / Raum-Code:</label>
           <div class="code-box">
             <span id="my-peer-id">Wird generiert...</span>
             <button id="copy-id-btn" class="btn-icon" title="Code kopieren">
@@ -30,15 +29,28 @@
             </button>
           </div>
         </div>
+        <div id="connection-status" class="status-badge disconnected">Bereit</div>
+      </div>
 
-        <div class="divider">ODER</div>
-
-        <div class="input-group">
-          <label for="remote-id-input">Freund-Code eingeben:</label>
-          <input type="text" id="remote-id-input" placeholder="z. B. stream-98234">
-          <button id="connect-btn" class="btn primary-btn">Verbinden</button>
+      <!-- Friends Section -->
+      <div class="card friends-card">
+        <div class="card-header">
+          <h3>Freunde</h3>
+          <button id="add-friend-btn" class="btn-small success-btn">+ Freund</button>
         </div>
-        <div id="connection-status" class="status-badge disconnected">Getrennt</div>
+        <div id="friends-list" class="friends-list">
+          <div class="empty-list-msg">Noch keine Freunde hinzugefügt.</div>
+        </div>
+      </div>
+
+      <!-- Direct / Group Room Section -->
+      <div class="card group-card">
+        <h3>Raum / Gruppe</h3>
+        <div class="input-group">
+          <label for="remote-id-input">Raum-Code oder Freund-ID:</label>
+          <input type="text" id="remote-id-input" placeholder="z. B. stream-98234">
+          <button id="connect-btn" class="btn primary-btn">Raum beitreten</button>
+        </div>
       </div>
 
       <!-- Controls Section -->
@@ -108,6 +120,25 @@
         <h3>Wähle einen Bildschirm oder ein Fenster</h3>
         <div id="source-list" class="source-grid"></div>
         <button id="close-modal-btn" class="btn secondary-btn">Abbrechen</button>
+      </div>
+    </div>
+
+    <!-- Add Friend Modal -->
+    <div id="add-friend-modal" class="modal hidden">
+      <div class="modal-content small-modal">
+        <h3>Freund hinzufügen</h3>
+        <div class="form-group">
+          <label for="friend-name-input">Name des Freundes:</label>
+          <input type="text" id="friend-name-input" placeholder="z. B. Alex">
+        </div>
+        <div class="form-group">
+          <label for="friend-id-input">ID / Raum-Code des Freundes:</label>
+          <input type="text" id="friend-id-input" placeholder="z. B. stream-982341">
+        </div>
+        <div class="modal-actions">
+          <button id="save-friend-btn" class="btn primary-btn">Speichern</button>
+          <button id="close-friend-modal-btn" class="btn secondary-btn">Abbrechen</button>
+        </div>
       </div>
     </div>
   </div>
