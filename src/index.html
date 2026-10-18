@@ -18,11 +18,11 @@
         <h2>StreamShare</h2>
       </div>
 
-      <!-- Room Setup Section -->
+      <!-- Room & Direct Call Setup Section -->
       <div class="card room-card">
-        <h3>Raum-Verbindung</h3>
+        <h3>Raum & Verbindung</h3>
         <div class="input-group">
-          <label>Deine ID / Raum-Code:</label>
+          <label>Deine ID / Dein Code:</label>
           <div class="code-box">
             <span id="my-peer-id">Wird generiert...</span>
             <button id="copy-id-btn" class="btn-icon" title="Code kopieren">
@@ -34,11 +34,24 @@
         <div class="divider">ODER</div>
 
         <div class="input-group">
-          <label for="remote-id-input">Freund-Code eingeben:</label>
-          <input type="text" id="remote-id-input" placeholder="z. B. stream-98234">
-          <button id="connect-btn" class="btn primary-btn">Verbinden</button>
+          <label for="remote-id-input">Freund / Gruppe beitreten:</label>
+          <input type="text" id="remote-id-input" placeholder="z. B. stream-982341 oder Gruppen-Code">
+          <button id="connect-btn" class="btn primary-btn">Verbinden / Beitreten</button>
         </div>
         <div id="connection-status" class="status-badge disconnected">Getrennt</div>
+      </div>
+
+      <!-- Friends List Section -->
+      <div class="card friends-card">
+        <h3>Freunde</h3>
+        <div class="add-friend-group">
+          <input type="text" id="friend-id-input" placeholder="Freund-ID (z. B. stream-123456)">
+          <input type="text" id="friend-name-input" placeholder="Name (optional)">
+          <button id="add-friend-btn" class="btn secondary-btn">+ Freund hinzufügen</button>
+        </div>
+        <div id="friends-list" class="friends-list">
+          <p class="empty-list">Noch keine Freunde hinzugefügt.</p>
+        </div>
       </div>
 
       <!-- Controls Section -->

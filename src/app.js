@@ -66,10 +66,125 @@ const ICE_SERVERS = [
   }
 ];
 
+// Friends state management
+let friends = [];
+
+function loadSavedFriends() {
+  try {
+    const saved = localStorage.getItem('streamshare_friends');
+    if (saved) {
+      friends = JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Error loading friends:', e);
+    friends = [];
+  }
+  renderFriendsList();
+}
+
+function saveFriends() {
+  try {
+    localStorage.setItem('streamshare_friends', JSON.stringify(friends));
+  } catch (e) {
+    console.error('Error saving friends:', e);
+  }
+}
+
+function renderFriendsList() {
+  const friendsListEl = document.getElementById('friends-list');
+  if (!friendsListEl) return;
+
+  if (friends.length === 0) {
+    friendsListEl.innerHTML = '<p class="empty-list">Noch keine Freunde hinzugefügt.</p>';
+    return;
+  }
+
+  friendsListEl.innerHTML = '';
+  friends.forEach((friend, index) => {
+    const item = document.createElement('div');
+    item.className = 'friend-item';
+
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'friend-info';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'friend-name';
+    nameSpan.textContent = friend.name || friend.id;
+
+    const idSpan = document.createElement('span');
+    idSpan.className = 'friend-id';
+    idSpan.textContent = friend.id;
+
+    infoDiv.appendChild(nameSpan);
+    infoDiv.appendChild(idSpan);
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'friend-actions';
+
+    const callBtn = document.createElement('button');
+    callBtn.className = 'btn primary-btn btn-sm call-friend-btn';
+    callBtn.setAttribute('data-id', friend.id);
+    callBtn.textContent = 'Anrufen';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn danger-btn btn-sm remove-friend-btn';
+    removeBtn.setAttribute('data-index', index.toString());
+    removeBtn.textContent = '✕';
+
+    actionsDiv.appendChild(callBtn);
+    actionsDiv.appendChild(removeBtn);
+
+    item.appendChild(infoDiv);
+    item.appendChild(actionsDiv);
+
+    friendsListEl.appendChild(item);
+  });
+
+  // Attach event listeners
+  document.querySelectorAll('.call-friend-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const targetId = e.target.getAttribute('data-id');
+      remoteIdInput.value = targetId;
+      connectToPeer(targetId);
+    });
+  });
+
+  document.querySelectorAll('.remove-friend-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = parseInt(e.target.getAttribute('data-index'));
+      friends.splice(idx, 1);
+      saveFriends();
+      renderFriendsList();
+    });
+  });
+}
+
+function addFriend(id, name) {
+  if (!id) return;
+  const existing = friends.find(f => f.id === id);
+  if (existing) {
+    alert('Dieser Freund existiert bereits in deiner Liste.');
+    return;
+  }
+  friends.push({ id, name: name || id });
+  saveFriends();
+  renderFriendsList();
+}
+
+// Get or create persistent My Peer ID
+function getMyPeerId() {
+  let savedId = localStorage.getItem('streamshare_my_id');
+  if (!savedId) {
+    savedId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
+    localStorage.setItem('streamshare_my_id', savedId);
+  }
+  return savedId;
+}
+
 // Initialize PeerJS Connection
 function initPeer() {
-  const randomId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
-  peer = new Peer(randomId, {
+  const myId = getMyPeerId();
+  peer = new Peer(myId, {
     debug: 2,
     config: {
       iceServers: ICE_SERVERS,
@@ -79,6 +194,7 @@ function initPeer() {
 
   peer.on('open', (id) => {
     myPeerIdEl.textContent = id;
+    loadSavedFriends();
   });
 
   peer.on('connection', (conn) => {
@@ -109,6 +225,26 @@ function initPeer() {
   });
 }
 
+// Helper to transform SDP for maximum bitrate (30-50 Mbps)
+function setHighBitrateSDP(sdp) {
+  let lines = sdp.split('\r\n');
+  let mVideoIndex = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].indexOf('m=video') === 0) {
+      mVideoIndex = i;
+      break;
+    }
+  }
+
+  if (mVideoIndex !== -1) {
+    // Insert b=AS:40000 (40 Mbps) and b=TIAS:40000000 into SDP for video stream
+    lines.splice(mVideoIndex + 1, 0, 'b=AS:40000', 'b=TIAS:40000000');
+  }
+
+  return lines.join('\r\n');
+}
+
 function setupCallHandlers(call) {
   call.on('stream', (remoteStream) => {
     if (remoteStream.getVideoTracks().length > 0) {
@@ -117,11 +253,30 @@ function setupCallHandlers(call) {
   });
 
   if (call.peerConnection) {
-    call.peerConnection.oniceconnectionstatechange = () => {
+    // Optimize sender video encoding bitrates on connection
+    call.peerConnection.oniceconnectionstatechange = async () => {
       const state = call.peerConnection.iceConnectionState;
       console.log('ICE Connection State:', state);
       if (state === 'connected' || state === 'completed') {
         updateStatus(true, 'Verbunden (Stream Aktiv)');
+
+        // Upgrade RTCRtpSenders bitrates dynamically
+        const senders = call.peerConnection.getSenders();
+        senders.forEach(async (sender) => {
+          if (sender.track && sender.track.kind === 'video') {
+            try {
+              const params = sender.getParameters();
+              if (!params.encodings || params.encodings.length === 0) {
+                params.encodings = [{}];
+              }
+              params.encodings[0].maxBitrate = 40000000; // 40 Mbps max bitrate
+              params.encodings[0].maxFramerate = parseInt(fpsSelect.value);
+              await sender.setParameters(params);
+            } catch (err) {
+              console.warn('Could not set sender parameters:', err);
+            }
+          }
+        });
       } else if (state === 'failed' || state === 'disconnected') {
         updateStatus(false, 'Verbindung getrennt');
       }
@@ -138,11 +293,26 @@ function setupCallHandlers(call) {
 }
 
 function setupDataConnection(conn) {
+  if (dataConn && dataConn !== conn) {
+    try { dataConn.close(); } catch (e) {}
+  }
   dataConn = conn;
   connectedPeerId = conn.peer;
 
   conn.on('open', () => {
     updateStatus(true, 'Verbunden mit ' + conn.peer);
+    // If we are currently sharing screen when connection opens, notify partner and call them
+    if (localStream) {
+      conn.send({
+        type: 'START_SHARE',
+        res: resSelect.value,
+        fps: fpsSelect.value
+      });
+      if (peer && connectedPeerId) {
+        currentCall = peer.call(connectedPeerId, localStream);
+        setupCallHandlers(currentCall);
+      }
+    }
   });
 
   conn.on('data', (data) => {
@@ -151,6 +321,8 @@ function setupDataConnection(conn) {
       statFps.textContent = `${data.fps} FPS`;
     } else if (data.type === 'STOP_SHARE') {
       resetVideoDisplay();
+    } else if (data.type === 'PING') {
+      conn.send({ type: 'PONG' });
     }
   });
 
@@ -163,7 +335,7 @@ function setupDataConnection(conn) {
 
   conn.on('error', (err) => {
     console.error('Data Connection Error:', err);
-    updateStatus(false, 'Getrennt');
+    updateStatus(false, 'Verbindungsfehler');
   });
 }
 
@@ -194,17 +366,39 @@ copyIdBtn.addEventListener('click', () => {
   }
 });
 
+function connectToPeer(targetId) {
+  if (!targetId) return;
+  updateStatus(true, 'Verbinde...');
+  const conn = peer.connect(targetId);
+  setupDataConnection(conn);
+}
+
 connectBtn.addEventListener('click', () => {
   const remoteId = remoteIdInput.value.trim();
   if (!remoteId) {
     alert('Bitte gib einen gültigen Code deines Freundes ein.');
     return;
   }
-
-  updateStatus(true, 'Verbinde...');
-  const conn = peer.connect(remoteId);
-  setupDataConnection(conn);
+  connectToPeer(remoteId);
 });
+
+const addFriendBtn = document.getElementById('add-friend-btn');
+const friendIdInput = document.getElementById('friend-id-input');
+const friendNameInput = document.getElementById('friend-name-input');
+
+if (addFriendBtn) {
+  addFriendBtn.addEventListener('click', () => {
+    const fId = friendIdInput.value.trim();
+    const fName = friendNameInput.value.trim();
+    if (!fId) {
+      alert('Bitte gib eine gültige Freund-ID ein.');
+      return;
+    }
+    addFriend(fId, fName);
+    friendIdInput.value = '';
+    friendNameInput.value = '';
+  });
+}
 
 function displayRemoteStream(stream, isLocal = false) {
   remoteVideo.srcObject = stream;
