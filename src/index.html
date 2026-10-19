@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StreamShare - 4K 120FPS Screen Share</title>
+  <title>StreamShare - High FPS Screen Share & Calls</title>
   <link rel="stylesheet" href="styles.css">
   <script src="peerjs.min.js"></script>
 </head>
@@ -18,63 +18,89 @@
         <h2>StreamShare</h2>
       </div>
 
-      <!-- Room Setup Section -->
-      <div class="card room-card">
-        <h3>Raum-Verbindung</h3>
+      <!-- User Identity Card -->
+      <div class="card identity-card">
+        <h3>Mein Profil & ID</h3>
         <div class="input-group">
-          <label>Deine ID / Raum-Code:</label>
-          <div class="code-box">
-            <span id="my-peer-id">Wird generiert...</span>
-            <button id="copy-id-btn" class="btn-icon" title="Code kopieren">
-              📋
-            </button>
+          <label for="custom-id-input">Deine persönliche ID / Raum-Code:</label>
+          <div class="custom-id-flex">
+            <input type="text" id="custom-id-input" placeholder="z. B. alex-stream" maxlength="32">
+            <button id="save-id-btn" class="btn primary-btn" title="ID Speichern">Speichern</button>
           </div>
         </div>
-
-        <div class="divider">ODER</div>
-
-        <div class="input-group">
-          <label for="remote-id-input">Freund-Code eingeben:</label>
-          <input type="text" id="remote-id-input" placeholder="z. B. stream-98234">
-          <button id="connect-btn" class="btn primary-btn">Verbinden</button>
+        <div class="code-box">
+          <span id="my-peer-id">Wird geladen...</span>
+          <button id="copy-id-btn" class="btn-icon" title="Code kopieren">📋</button>
         </div>
-        <div id="connection-status" class="status-badge disconnected">Getrennt</div>
       </div>
 
-      <!-- Controls Section -->
+      <!-- Friends List Section -->
+      <div class="card friends-card">
+        <div class="card-header">
+          <h3>Freunde (& Group Call)</h3>
+          <button id="toggle-add-friend-btn" class="btn-icon-text">+ Freund</button>
+        </div>
+
+        <!-- Add Friend Form (Collapsible/Toggleable) -->
+        <div id="add-friend-form" class="add-friend-form hidden">
+          <input type="text" id="friend-name-input" placeholder="Name (z.B. Chris)">
+          <input type="text" id="friend-id-input" placeholder="ID (z.B. chris-stream)">
+          <button id="save-friend-btn" class="btn success-btn">Hinzufügen</button>
+        </div>
+
+        <div id="friends-list" class="friends-list">
+          <div class="empty-friends">Noch keine Freunde gespeichert.</div>
+        </div>
+      </div>
+
+      <!-- Quick Connect / Room Join Section -->
+      <div class="card room-card">
+        <h3>Direkt-Verbindung / Raum</h3>
+        <div class="input-group">
+          <label for="remote-id-input">Code oder Gruppen-Raum eingeben:</label>
+          <div class="connect-flex">
+            <input type="text" id="remote-id-input" placeholder="z. B. stream-98234">
+            <button id="connect-btn" class="btn primary-btn">Join</button>
+          </div>
+        </div>
+        <div id="connection-status" class="status-badge disconnected"> Getrennt</div>
+      </div>
+
+      <!-- Stream & Quality Settings -->
       <div class="card controls-card">
-        <h3>Einstellungen & Stream</h3>
+        <h3>Stream Einstellungen</h3>
 
         <div class="form-group">
-          <label>Auflösung:</label>
+          <label for="res-select">Auflösung:</label>
           <select id="res-select" class="select-input">
             <option value="720">720p (HD)</option>
             <option value="1080" selected>1080p (Full HD)</option>
-            <option value="1440">1440p (2K)</option>
-            <option value="2160">2160p (4K / Original)</option>
+            <option value="1440">1440p (2K Quad HD)</option>
+            <option value="2160">2160p (4K Ultra HD)</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label>Bildrate (FPS):</label>
+          <label for="fps-select">Bildrate (FPS):</label>
           <select id="fps-select" class="select-input">
             <option value="30">30 FPS</option>
-            <option value="60" selected>60 FPS</option>
+            <option value="60" selected>60 FPS (Fluid)</option>
             <option value="120">120 FPS (Ultra Smooth)</option>
           </select>
         </div>
 
         <div class="action-buttons">
-          <button id="start-share-btn" class="btn success-btn">Bildschirm teilen</button>
-          <button id="stop-share-btn" class="btn danger-btn hidden">Stream beenden</button>
+          <button id="start-share-btn" class="btn success-btn">🖥️ Bildschirm teilen</button>
+          <button id="stop-share-btn" class="btn danger-btn hidden">⏹️ Stream beenden</button>
         </div>
 
         <div class="audio-controls">
-          <div class="control-row">
+          <div class="control-row-grid">
             <button id="toggle-mic-btn" class="btn secondary-btn">🎤 Mikro: An</button>
+            <button id="toggle-call-btn" class="btn secondary-btn">📞 Sprachcall</button>
           </div>
           <div class="control-row">
-            <label>Stream Lautstärke:</label>
+            <label for="volume-range">Lautstärke:</label>
             <input type="range" id="volume-range" min="0" max="100" value="100">
           </div>
         </div>
@@ -89,7 +115,8 @@
           <svg viewBox="0 0 24 24" width="64" height="64" fill="currentColor">
             <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 10H3V8h18v8zM10 9.5v5l4.5-2.5-4.5-2.5z"/>
           </svg>
-          <p>Warte auf übertragenen Bildschirm oder starte deinen eigenen Stream...</p>
+          <h3>Bereit für Calls & Bildschirmübertragung</h3>
+          <p>Wähle einen Freund aus der Liste oder gib einen Raum-Code ein, um zu starten.</p>
         </div>
 
         <div id="stats-overlay" class="stats-overlay hidden">
@@ -102,10 +129,13 @@
       </div>
     </main>
 
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
     <!-- Source Selector Modal -->
     <div id="source-modal" class="modal hidden">
       <div class="modal-content">
-        <h3>Wähle einen Bildschirm oder ein Fenster</h3>
+        <h3>Wähle einen Bildschirm oder ein Fenster zum Übertragen</h3>
         <div id="source-list" class="source-grid"></div>
         <button id="close-modal-btn" class="btn secondary-btn">Abbrechen</button>
       </div>
