@@ -18,65 +18,101 @@
         <h2>StreamShare</h2>
       </div>
 
-      <!-- Room Setup Section -->
-      <div class="card room-card">
-        <h3>Raum-Verbindung</h3>
+      <!-- User Identity Card -->
+      <div class="card user-card">
+        <h3>Mein Profil & Code</h3>
+        <div class="form-group">
+          <label for="display-name-input">Dein Name:</label>
+          <input type="text" id="display-name-input" placeholder="z. B. Alex" value="User">
+        </div>
         <div class="input-group">
           <label>Deine ID / Raum-Code:</label>
           <div class="code-box">
             <span id="my-peer-id">Wird generiert...</span>
-            <button id="copy-id-btn" class="btn-icon" title="Code kopieren">
-              📋
-            </button>
+            <button id="copy-id-btn" class="btn-icon" title="Code kopieren">📋</button>
           </div>
         </div>
-
-        <div class="divider">ODER</div>
-
-        <div class="input-group">
-          <label for="remote-id-input">Freund-Code eingeben:</label>
-          <input type="text" id="remote-id-input" placeholder="z. B. stream-98234">
-          <button id="connect-btn" class="btn primary-btn">Verbinden</button>
-        </div>
-        <div id="connection-status" class="status-badge disconnected">Getrennt</div>
       </div>
 
-      <!-- Controls Section -->
-      <div class="card controls-card">
-        <h3>Einstellungen & Stream</h3>
+      <!-- Navigation Tabs -->
+      <div class="tab-nav">
+        <button id="tab-friends-btn" class="tab-btn active">Freunde</button>
+        <button id="tab-settings-btn" class="tab-btn">Stream-Einstellungen</button>
+      </div>
 
-        <div class="form-group">
-          <label>Auflösung:</label>
-          <select id="res-select" class="select-input">
-            <option value="720">720p (HD)</option>
-            <option value="1080" selected>1080p (Full HD)</option>
-            <option value="1440">1440p (2K)</option>
-            <option value="2160">2160p (4K / Original)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label>Bildrate (FPS):</label>
-          <select id="fps-select" class="select-input">
-            <option value="30">30 FPS</option>
-            <option value="60" selected>60 FPS</option>
-            <option value="120">120 FPS (Ultra Smooth)</option>
-          </select>
-        </div>
-
-        <div class="action-buttons">
-          <button id="start-share-btn" class="btn success-btn">Bildschirm teilen</button>
-          <button id="stop-share-btn" class="btn danger-btn hidden">Stream beenden</button>
-        </div>
-
-        <div class="audio-controls">
-          <div class="control-row">
-            <button id="toggle-mic-btn" class="btn secondary-btn">🎤 Mikro: An</button>
+      <!-- Tab Content: Friends List & Quick Join -->
+      <div id="tab-friends-content" class="tab-content">
+        <div class="card">
+          <h3>Freund hinzufügen</h3>
+          <div class="form-group">
+            <input type="text" id="friend-name-input" placeholder="Name (z.B. Tim)">
+            <input type="text" id="friend-id-input" placeholder="Code (z.B. stream-123456)">
+            <button id="add-friend-btn" class="btn primary-btn">+ Freund speichern</button>
           </div>
-          <div class="control-row">
-            <label>Stream Lautstärke:</label>
-            <input type="range" id="volume-range" min="0" max="100" value="100">
+        </div>
+
+        <div class="card">
+          <h3>Meine Freunde</h3>
+          <div id="friends-list" class="friends-list">
+            <div class="empty-list-msg">Noch keine Freunde gespeichert.</div>
           </div>
+        </div>
+
+        <div class="card">
+          <h3>Direkt-Verbindung</h3>
+          <div class="input-group">
+            <input type="text" id="remote-id-input" placeholder="Code eingeben...">
+            <button id="connect-btn" class="btn primary-btn">Verbinden</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: Stream & Quality Settings -->
+      <div id="tab-settings-content" class="tab-content hidden">
+        <div class="card controls-card">
+          <h3>Stream-Qualität</h3>
+
+          <div class="form-group">
+            <label for="res-select">Auflösung:</label>
+            <select id="res-select" class="select-input">
+              <option value="720">720p (HD)</option>
+              <option value="1080" selected>1080p (Full HD)</option>
+              <option value="1440">1440p (2K)</option>
+              <option value="2160">2160p (4K / Original)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="fps-select">Bildrate (FPS):</label>
+            <select id="fps-select" class="select-input">
+              <option value="30">30 FPS</option>
+              <option value="60" selected>60 FPS (Flüssig)</option>
+              <option value="120">120 FPS (Ultra Smooth)</option>
+            </select>
+          </div>
+
+          <div class="action-buttons">
+            <button id="start-share-btn" class="btn success-btn">Bildschirm teilen</button>
+            <button id="stop-share-btn" class="btn danger-btn hidden">Stream beenden</button>
+          </div>
+
+          <div class="audio-controls">
+            <div class="control-row">
+              <label for="volume-range">Empfangene Lautstärke:</label>
+              <input type="range" id="volume-range" min="0" max="100" value="100">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Status & Call Control Bar -->
+      <div class="user-bottom-bar">
+        <div class="status-info">
+          <span id="connection-status" class="status-badge disconnected">Getrennt</span>
+        </div>
+        <div class="quick-call-controls">
+          <button id="toggle-mic-btn" class="btn-icon-bar" title="Mikrofon stumm/an">🎤</button>
+          <button id="disconnect-call-btn" class="btn-icon-bar danger" title="Auflegen / Verbindung trennen">📵</button>
         </div>
       </div>
     </aside>
@@ -85,20 +121,20 @@
     <main class="main-content">
       <div class="video-container">
         <video id="remote-video" autoplay playsinline></video>
+
         <div id="video-placeholder" class="placeholder">
           <svg viewBox="0 0 24 24" width="64" height="64" fill="currentColor">
             <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 10H3V8h18v8zM10 9.5v5l4.5-2.5-4.5-2.5z"/>
           </svg>
-          <p>Warte auf übertragenen Bildschirm oder starte deinen eigenen Stream...</p>
+          <h3>Willkommen bei StreamShare</h3>
+          <p>Wähle einen Freund aus oder gib den Raum-Code ein, um Anrufe & Bildschirm-Streams in bis zu 4K 120 FPS zu starten!</p>
         </div>
 
         <div id="stats-overlay" class="stats-overlay hidden">
           <span id="stat-res">1080p</span> | <span id="stat-fps">60 FPS</span> | <span id="stat-ping">P2P Direct</span>
         </div>
 
-        <button id="fullscreen-btn" class="btn-fullscreen" title="Vollbild">
-          ⛶
-        </button>
+        <button id="fullscreen-btn" class="btn-fullscreen" title="Vollbild">⛶</button>
       </div>
     </main>
 
@@ -110,6 +146,9 @@
         <button id="close-modal-btn" class="btn secondary-btn">Abbrechen</button>
       </div>
     </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="toast-container"></div>
   </div>
 
   <script src="app.js"></script>
