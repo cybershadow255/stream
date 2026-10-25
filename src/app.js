@@ -6,13 +6,31 @@ let micStream = null;
 let isMicMuted = false;
 let connectedPeerId = null;
 
-// DOM Elements
+// DOM Elements - Tabs
+const tabFriendsBtn = document.getElementById('tab-friends-btn');
+const tabRoomBtn = document.getElementById('tab-room-btn');
+const tabSettingsBtn = document.getElementById('tab-settings-btn');
+
+const tabFriends = document.getElementById('tab-friends');
+const tabRoom = document.getElementById('tab-room');
+const tabSettings = document.getElementById('tab-settings');
+
+// DOM Elements - Profile & Friends
 const myPeerIdEl = document.getElementById('my-peer-id');
 const copyIdBtn = document.getElementById('copy-id-btn');
+const addFriendForm = document.getElementById('add-friend-form');
+const friendNameInput = document.getElementById('friend-name-input');
+const friendIdInput = document.getElementById('friend-id-input');
+const friendsListEl = document.getElementById('friends-list');
+
+// DOM Elements - Room & Direct Connect
+const groupRoomInput = document.getElementById('group-room-input');
+const joinRoomBtn = document.getElementById('join-room-btn');
 const remoteIdInput = document.getElementById('remote-id-input');
 const connectBtn = document.getElementById('connect-btn');
 const connectionStatus = document.getElementById('connection-status');
 
+// DOM Elements - Controls & Stream
 const resSelect = document.getElementById('res-select');
 const fpsSelect = document.getElementById('fps-select');
 const startShareBtn = document.getElementById('start-share-btn');
@@ -20,6 +38,7 @@ const stopShareBtn = document.getElementById('stop-share-btn');
 const toggleMicBtn = document.getElementById('toggle-mic-btn');
 const volumeRange = document.getElementById('volume-range');
 
+// DOM Elements - Main Display
 const remoteVideo = document.getElementById('remote-video');
 const videoPlaceholder = document.getElementById('video-placeholder');
 const statsOverlay = document.getElementById('stats-overlay');
@@ -27,6 +46,7 @@ const statRes = document.getElementById('stat-res');
 const statFps = document.getElementById('stat-fps');
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 
+// DOM Elements - Source Picker Modal
 const sourceModal = document.getElementById('source-modal');
 const sourceList = document.getElementById('source-list');
 const closeModalBtn = document.getElementById('close-modal-btn');
@@ -66,10 +86,41 @@ const ICE_SERVERS = [
   }
 ];
 
+// --- Tab Navigation ---
+function setupTabs() {
+  const tabs = [
+    { btn: tabFriendsBtn, content: tabFriends },
+    { btn: tabRoomBtn, content: tabRoom },
+    { btn: tabSettingsBtn, content: tabSettings }
+  ];
+
+  tabs.forEach(tab => {
+    tab.btn.addEventListener('click', () => {
+      tabs.forEach(t => {
+        t.btn.classList.remove('active');
+        t.content.classList.add('hidden');
+      });
+      tab.btn.classList.add('active');
+      tab.content.classList.remove('hidden');
+    });
+  });
+}
+
+// --- LocalStorage Persistent Peer ID ---
+function getOrCreatePeerId() {
+  let savedId = localStorage.getItem('streamshare_my_id');
+  if (!savedId) {
+    savedId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
+    localStorage.setItem('streamshare_my_id', savedId);
+  }
+  return savedId;
+}
+
 // Initialize PeerJS Connection
 function initPeer() {
-  const randomId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
-  peer = new Peer(randomId, {
+  const peerId = getOrCreatePeerId();
+
+  peer = new Peer(peerId, {
     debug: 2,
     config: {
       iceServers: ICE_SERVERS,
@@ -109,32 +160,90 @@ function initPeer() {
   });
 }
 
-function setupCallHandlers(call) {
-  call.on('stream', (remoteStream) => {
-    if (remoteStream.getVideoTracks().length > 0) {
-      displayRemoteStream(remoteStream, false);
-    }
-  });
+// --- Friend Management ---
+function getSavedFriends() {
+  try {
+    const raw = localStorage.getItem('streamshare_friends');
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.error('Failed to parse friends from localStorage:', e);
+    return [];
+  }
+}
 
-  if (call.peerConnection) {
-    call.peerConnection.oniceconnectionstatechange = () => {
-      const state = call.peerConnection.iceConnectionState;
-      console.log('ICE Connection State:', state);
-      if (state === 'connected' || state === 'completed') {
-        updateStatus(true, 'Verbunden (Stream Aktiv)');
-      } else if (state === 'failed' || state === 'disconnected') {
-        updateStatus(false, 'Verbindung getrennt');
-      }
-    };
+function saveFriends(friends) {
+  localStorage.setItem('streamshare_friends', JSON.stringify(friends));
+}
+
+function renderFriends() {
+  const friends = getSavedFriends();
+  friendsListEl.innerHTML = '';
+
+  if (friends.length === 0) {
+    friendsListEl.innerHTML = '<div class="empty-friends">Noch keine Freunde hinzugefügt. Füge oben einen Freund hinzu!</div>';
+    return;
   }
 
-  call.on('close', () => {
-    resetVideoDisplay();
-  });
+  friends.forEach(friend => {
+    const item = document.createElement('div');
+    item.className = 'friend-item';
 
-  call.on('error', (err) => {
-    console.error('Call Error:', err);
+    item.innerHTML = `
+      <div class="friend-info">
+        <span class="friend-name">${escapeHtml(friend.name)}</span>
+        <span class="friend-id">${escapeHtml(friend.id)}</span>
+      </div>
+      <div class="friend-actions">
+        <button class="btn primary-btn btn-small call-friend-btn" data-id="${escapeHtml(friend.id)}">📞 Anrufen</button>
+        <button class="btn-danger-icon delete-friend-btn" data-id="${escapeHtml(friend.id)}" title="Löschen">🗑️</button>
+      </div>
+    `;
+
+    item.querySelector('.call-friend-btn').addEventListener('click', () => {
+      connectToPeer(friend.id);
+    });
+
+    item.querySelector('.delete-friend-btn').addEventListener('click', () => {
+      deleteFriend(friend.id);
+    });
+
+    friendsListEl.appendChild(item);
   });
+}
+
+function addFriend(name, id) {
+  const friends = getSavedFriends();
+  const existing = friends.find(f => f.id === id);
+  if (existing) {
+    alert('Dieser Freund existiert bereits in deiner Liste.');
+    return;
+  }
+  friends.push({ name, id });
+  saveFriends(friends);
+  renderFriends();
+}
+
+function deleteFriend(id) {
+  let friends = getSavedFriends();
+  friends = friends.filter(f => f.id !== id);
+  saveFriends(friends);
+  renderFriends();
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// --- Group / Room & Direct Connections ---
+function connectToPeer(targetId) {
+  if (!targetId) return;
+  updateStatus(true, 'Verbinde mit ' + targetId + '...');
+  const conn = peer.connect(targetId);
+  setupDataConnection(conn);
 }
 
 function setupDataConnection(conn) {
@@ -167,6 +276,34 @@ function setupDataConnection(conn) {
   });
 }
 
+function setupCallHandlers(call) {
+  call.on('stream', (remoteStream) => {
+    if (remoteStream.getVideoTracks().length > 0) {
+      displayRemoteStream(remoteStream, false);
+    }
+  });
+
+  if (call.peerConnection) {
+    call.peerConnection.oniceconnectionstatechange = () => {
+      const state = call.peerConnection.iceConnectionState;
+      console.log('ICE Connection State:', state);
+      if (state === 'connected' || state === 'completed') {
+        updateStatus(true, 'Verbunden (Stream Aktiv)');
+      } else if (state === 'failed' || state === 'disconnected') {
+        updateStatus(false, 'Verbindung getrennt');
+      }
+    };
+  }
+
+  call.on('close', () => {
+    resetVideoDisplay();
+  });
+
+  call.on('error', (err) => {
+    console.error('Call Error:', err);
+  });
+}
+
 function createEmptyStream() {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   const osc = ctx.createOscillator();
@@ -186,6 +323,7 @@ function updateStatus(connected, text) {
   }
 }
 
+// Copy ID Button
 copyIdBtn.addEventListener('click', () => {
   const idText = myPeerIdEl.textContent;
   if (idText && !idText.includes('Wird generiert')) {
@@ -194,16 +332,35 @@ copyIdBtn.addEventListener('click', () => {
   }
 });
 
+// Form Submissions & Click Handlers
+addFriendForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const name = friendNameInput.value.trim();
+  const id = friendIdInput.value.trim();
+  if (name && id) {
+    addFriend(name, id);
+    friendNameInput.value = '';
+    friendIdInput.value = '';
+  }
+});
+
+joinRoomBtn.addEventListener('click', () => {
+  const roomName = groupRoomInput.value.trim();
+  if (!roomName) {
+    alert('Bitte gib einen Raumnamen oder Code ein.');
+    return;
+  }
+  const formattedRoomId = roomName.startsWith('stream-') ? roomName : 'stream-room-' + roomName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  connectToPeer(formattedRoomId);
+});
+
 connectBtn.addEventListener('click', () => {
   const remoteId = remoteIdInput.value.trim();
   if (!remoteId) {
     alert('Bitte gib einen gültigen Code deines Freundes ein.');
     return;
   }
-
-  updateStatus(true, 'Verbinde...');
-  const conn = peer.connect(remoteId);
-  setupDataConnection(conn);
+  connectToPeer(remoteId);
 });
 
 function displayRemoteStream(stream, isLocal = false) {
@@ -230,7 +387,7 @@ function resetVideoDisplay() {
   statsOverlay.classList.add('hidden');
 }
 
-// Handle Screen Share Trigger
+// --- Screen Sharing Logic & High FPS / High Resolution Optimizations ---
 startShareBtn.addEventListener('click', async () => {
   if (window.electronAPI) {
     try {
@@ -266,10 +423,10 @@ closeModalBtn.addEventListener('click', () => {
   sourceModal.classList.add('hidden');
 });
 
-// Robust getDisplayMedia capture with audio capture fallback
+// Robust getDisplayMedia capture with High Bitrate / Frame Rate Optimizations
 async function startScreenShare() {
-  const selectedRes = RESOLUTION_MAP[resSelect.value];
-  const targetFps = parseInt(fpsSelect.value);
+  const selectedRes = RESOLUTION_MAP[resSelect.value] || RESOLUTION_MAP['1080'];
+  const targetFps = parseInt(fpsSelect.value) || 60;
 
   const constraintsWithAudio = {
     video: {
@@ -296,6 +453,12 @@ async function startScreenShare() {
     } catch (audioErr) {
       console.warn('System audio capture failed/denied, falling back to video-only capture:', audioErr);
       desktopStream = await navigator.mediaDevices.getDisplayMedia(constraintsWithoutAudio);
+    }
+
+    // Set video track contentHint for high frame-rate smoothness
+    const videoTrack = desktopStream.getVideoTracks()[0];
+    if (videoTrack && 'contentHint' in videoTrack) {
+      videoTrack.contentHint = 'motion';
     }
 
     try {
@@ -338,6 +501,21 @@ function handleStreamCaptured(stream) {
 
     currentCall = peer.call(targetPeer, stream);
     setupCallHandlers(currentCall);
+
+    // Apply high bitrate sender parameter optimizations for 60 / 120 FPS
+    if (currentCall && currentCall.peerConnection) {
+      currentCall.peerConnection.getSenders().forEach(sender => {
+        if (sender.track && sender.track.kind === 'video') {
+          const params = sender.getParameters();
+          if (!params.encodings) {
+            params.encodings = [{}];
+          }
+          params.encodings[0].maxBitrate = 25000000; // 25 Mbps max bitrate for 4K/60/120fps
+          params.encodings[0].networkPriority = 'high';
+          sender.setParameters(params).catch(e => console.warn('Set sender parameters warning:', e));
+        }
+      });
+    }
   }
 
   stream.getVideoTracks()[0].onended = () => {
@@ -390,4 +568,7 @@ fullscreenBtn.addEventListener('click', () => {
   }
 });
 
+// Initialization
+setupTabs();
+renderFriends();
 initPeer();
