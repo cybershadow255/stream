@@ -36,9 +36,20 @@
         <div class="input-group">
           <label for="remote-id-input">Freund-Code eingeben:</label>
           <input type="text" id="remote-id-input" placeholder="z. B. stream-98234">
-          <button id="connect-btn" class="btn primary-btn">Verbinden</button>
+          <div class="btn-row">
+            <button id="connect-btn" class="btn primary-btn">Verbinden</button>
+            <button id="add-friend-btn" class="btn secondary-btn" title="Freund speichern">⭐ Speichern</button>
+          </div>
         </div>
         <div id="connection-status" class="status-badge disconnected">Getrennt</div>
+      </div>
+
+      <!-- Friends List Card -->
+      <div class="card friends-card">
+        <h3>Gespeicherte Freunde</h3>
+        <ul id="friends-list" class="friends-list">
+          <li class="empty-list">Keine Freunde gespeichert.</li>
+        </ul>
       </div>
 
       <!-- Controls Section -->
