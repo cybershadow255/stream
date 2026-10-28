@@ -11,6 +11,8 @@ const myPeerIdEl = document.getElementById('my-peer-id');
 const copyIdBtn = document.getElementById('copy-id-btn');
 const remoteIdInput = document.getElementById('remote-id-input');
 const connectBtn = document.getElementById('connect-btn');
+const addFriendBtn = document.getElementById('add-friend-btn');
+const friendsListEl = document.getElementById('friends-list');
 const connectionStatus = document.getElementById('connection-status');
 
 const resSelect = document.getElementById('res-select');
@@ -68,8 +70,13 @@ const ICE_SERVERS = [
 
 // Initialize PeerJS Connection
 function initPeer() {
-  const randomId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
-  peer = new Peer(randomId, {
+  let savedId = localStorage.getItem('streamshare_my_id');
+  if (!savedId) {
+    savedId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
+    localStorage.setItem('streamshare_my_id', savedId);
+  }
+
+  peer = new Peer(savedId, {
     debug: 2,
     config: {
       iceServers: ICE_SERVERS,
@@ -79,6 +86,7 @@ function initPeer() {
 
   peer.on('open', (id) => {
     myPeerIdEl.textContent = id;
+    renderFriendsList();
   });
 
   peer.on('connection', (conn) => {
@@ -194,16 +202,99 @@ copyIdBtn.addEventListener('click', () => {
   }
 });
 
-connectBtn.addEventListener('click', () => {
-  const remoteId = remoteIdInput.value.trim();
+function getSavedFriends() {
+  try {
+    return JSON.parse(localStorage.getItem('streamshare_friends') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveFriends(friends) {
+  localStorage.setItem('streamshare_friends', JSON.stringify(friends));
+}
+
+function renderFriendsList() {
+  if (!friendsListEl) return;
+  const friends = getSavedFriends();
+  friendsListEl.innerHTML = '';
+
+  if (friends.length === 0) {
+    friendsListEl.innerHTML = '<li class="empty-list">Keine Freunde gespeichert.</li>';
+    return;
+  }
+
+  friends.forEach(friend => {
+    const li = document.createElement('li');
+    li.className = 'friend-item';
+
+    const spanName = document.createElement('span');
+    spanName.className = 'friend-name';
+    spanName.title = friend.id;
+    spanName.textContent = friend.name || friend.id;
+
+    const divActions = document.createElement('div');
+    divActions.className = 'friend-actions';
+
+    const callBtn = document.createElement('button');
+    callBtn.className = 'friend-btn call-friend-btn';
+    callBtn.textContent = '📞 Join';
+    callBtn.addEventListener('click', () => {
+      remoteIdInput.value = friend.id;
+      connectToPeer(friend.id);
+    });
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'friend-btn remove remove-friend-btn';
+    removeBtn.textContent = '✖';
+    removeBtn.addEventListener('click', () => {
+      const updated = getSavedFriends().filter(f => f.id !== friend.id);
+      saveFriends(updated);
+      renderFriendsList();
+    });
+
+    divActions.appendChild(callBtn);
+    divActions.appendChild(removeBtn);
+
+    li.appendChild(spanName);
+    li.appendChild(divActions);
+
+    friendsListEl.appendChild(li);
+  });
+}
+
+if (addFriendBtn) {
+  addFriendBtn.addEventListener('click', () => {
+    const remoteId = remoteIdInput.value.trim();
+    if (!remoteId) {
+      alert('Bitte gib einen gültigen Code ein, den du speichern möchtest.');
+      return;
+    }
+    const name = prompt('Gib einen Namen für diesen Freund ein:', remoteId) || remoteId;
+    const friends = getSavedFriends();
+    if (!friends.some(f => f.id === remoteId)) {
+      friends.push({ id: remoteId, name: name });
+      saveFriends(friends);
+      renderFriendsList();
+    } else {
+      alert('Dieser Freund ist bereits gespeichert.');
+    }
+  });
+}
+
+function connectToPeer(remoteId) {
   if (!remoteId) {
     alert('Bitte gib einen gültigen Code deines Freundes ein.');
     return;
   }
-
   updateStatus(true, 'Verbinde...');
   const conn = peer.connect(remoteId);
   setupDataConnection(conn);
+}
+
+connectBtn.addEventListener('click', () => {
+  const remoteId = remoteIdInput.value.trim();
+  connectToPeer(remoteId);
 });
 
 function displayRemoteStream(stream, isLocal = false) {

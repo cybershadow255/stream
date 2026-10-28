@@ -34,8 +34,15 @@ Die fertige `.exe` befindet sich danach im Ordner `dist/`.
 ---
 
 ## 🎮 Anwendungsschritte
-1. Starte StreamShare auf beiden Computern.
-2. Kopiere den oben gezeigten **Raum-Code** (z.B. `stream-982341`) und schicke ihn deinem Freund.
-3. Dein Freund gibt den Code bei **Freund-Code eingeben** ein und klickt auf **Verbinden**.
-4. Sobald „Verbunden“ erscheint, klickt einer von euch auf **Bildschirm teilen**, wählt die gewünschte Auflösung (z.B. 1080p / 4K) & FPS (z.B. 60 / 120 FPS) und wählt den Bildschirm aus.
-5. Das Bild erscheint sofort beim Partner in höchster Flüssigkeit!
+
+1. **App starten**:
+   - Starte StreamShare auf beiden Computern.
+2. **Raum-Verbindung & Freund speichern**:
+   - Kopiere deinen eigenen **Raum-Code** (z. B. `stream-982341`) und sende ihn deinem Freund.
+   - Dein Freund gibt den Code ein, klickt auf **Verbinden** oder auf **⭐ Speichern**, um deinen Code dauerhaft in seiner Freundesliste zu hinterlegen!
+3. **Bildschirm übertragen**:
+   - Klicke auf **Bildschirm teilen**.
+   - Wähle die gewünschte Qualität: **1080p Full HD**, **1440p 2K** oder **2160p 4K** sowie die FPS (**60 FPS** oder **120 FPS Ultra Smooth**).
+   - Wähle das gewünschte Fenster oder den gesamten Bildschirm aus.
+4. **Genießen**:
+   - Das Übertragungsbild wird direkt ohne Einschränkungen oder Abos P2P in voller Qualität übertragen.
