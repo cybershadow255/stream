@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StreamShare - 4K 120FPS Screen Share</title>
+  <title>StreamShare - 4K 120FPS Screen Share & Voice Call</title>
   <link rel="stylesheet" href="styles.css">
   <script src="peerjs.min.js"></script>
 </head>
@@ -18,11 +18,11 @@
         <h2>StreamShare</h2>
       </div>
 
-      <!-- Room Setup Section -->
-      <div class="card room-card">
-        <h3>Raum-Verbindung</h3>
+      <!-- My Profile / Peer ID -->
+      <div class="card profile-card">
+        <h3>Mein Profil & ID</h3>
         <div class="input-group">
-          <label>Deine ID / Raum-Code:</label>
+          <label>Deine permanente ID / Raum-Code:</label>
           <div class="code-box">
             <span id="my-peer-id">Wird generiert...</span>
             <button id="copy-id-btn" class="btn-icon" title="Code kopieren">
@@ -30,20 +30,37 @@
             </button>
           </div>
         </div>
+      </div>
 
-        <div class="divider">ODER</div>
+      <!-- Friends List Card -->
+      <div class="card friends-card">
+        <h3>Freunde</h3>
+        <div class="add-friend-group">
+          <input type="text" id="add-friend-name-input" placeholder="Name (z.B. Alex)">
+          <input type="text" id="add-friend-id-input" placeholder="Code (z.B. stream-123456)">
+          <button id="add-friend-btn" class="btn primary-btn">+ Freund hinzufügen</button>
+        </div>
+        <div id="friends-list" class="friends-list">
+          <div class="empty-friends">Noch keine Freunde hinzugefügt.</div>
+        </div>
+      </div>
 
+      <!-- Room / Direct Connection -->
+      <div class="card room-card">
+        <h3>Direkt-Verbindung / Gruppe</h3>
         <div class="input-group">
-          <label for="remote-id-input">Freund-Code eingeben:</label>
-          <input type="text" id="remote-id-input" placeholder="z. B. stream-98234">
-          <button id="connect-btn" class="btn primary-btn">Verbinden</button>
+          <label for="remote-id-input">Freund-ID oder Gruppen-Raum eingeben:</label>
+          <div class="connect-group">
+            <input type="text" id="remote-id-input" placeholder="z. B. stream-982341">
+            <button id="connect-btn" class="btn primary-btn">Beitreten / Anrufen</button>
+          </div>
         </div>
         <div id="connection-status" class="status-badge disconnected">Getrennt</div>
       </div>
 
       <!-- Controls Section -->
       <div class="card controls-card">
-        <h3>Einstellungen & Stream</h3>
+        <h3>Stream & Audio</h3>
 
         <div class="form-group">
           <label>Auflösung:</label>
@@ -59,7 +76,7 @@
           <label>Bildrate (FPS):</label>
           <select id="fps-select" class="select-input">
             <option value="30">30 FPS</option>
-            <option value="60" selected>60 FPS</option>
+            <option value="60" selected>60 FPS (Smooth)</option>
             <option value="120">120 FPS (Ultra Smooth)</option>
           </select>
         </div>

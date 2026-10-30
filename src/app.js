@@ -1,10 +1,10 @@
 let peer = null;
-let dataConn = null;
-let currentCall = null;
+let activeDataConns = new Map(); // peerId -> DataConnection
+let activeCalls = new Map();     // peerId -> MediaConnection
 let localStream = null;
 let micStream = null;
 let isMicMuted = false;
-let connectedPeerId = null;
+let friends = [];
 
 // DOM Elements
 const myPeerIdEl = document.getElementById('my-peer-id');
@@ -12,6 +12,11 @@ const copyIdBtn = document.getElementById('copy-id-btn');
 const remoteIdInput = document.getElementById('remote-id-input');
 const connectBtn = document.getElementById('connect-btn');
 const connectionStatus = document.getElementById('connection-status');
+
+const addFriendNameInput = document.getElementById('add-friend-name-input');
+const addFriendIdInput = document.getElementById('add-friend-id-input');
+const addFriendBtn = document.getElementById('add-friend-btn');
+const friendsListEl = document.getElementById('friends-list');
 
 const resSelect = document.getElementById('res-select');
 const fpsSelect = document.getElementById('fps-select');
@@ -66,10 +71,77 @@ const ICE_SERVERS = [
   }
 ];
 
+// Initialize Saved Peer ID or generate new
+function getMyPeerId() {
+  let id = localStorage.getItem('streamshare_my_id');
+  if (!id) {
+    id = 'stream-' + Math.floor(100000 + Math.random() * 900000);
+    localStorage.setItem('streamshare_my_id', id);
+  }
+  return id;
+}
+
+// Friends List Storage & Rendering
+function loadFriends() {
+  try {
+    const saved = localStorage.getItem('streamshare_friends');
+    friends = saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    friends = [];
+  }
+  renderFriends();
+}
+
+function saveFriends() {
+  localStorage.setItem('streamshare_friends', JSON.stringify(friends));
+  renderFriends();
+}
+
+function renderFriends() {
+  friendsListEl.innerHTML = '';
+  if (friends.length === 0) {
+    friendsListEl.innerHTML = '<div class="empty-friends">Noch keine Freunde hinzugefügt.</div>';
+    return;
+  }
+
+  friends.forEach((friend, index) => {
+    const item = document.createElement('div');
+    item.className = 'friend-item';
+    item.innerHTML = `
+      <div class="friend-info">
+        <span class="friend-name">${escapeHtml(friend.name)}</span>
+        <span class="friend-id">${escapeHtml(friend.id)}</span>
+      </div>
+      <div class="friend-actions">
+        <button class="btn primary-btn btn-sm call-friend-btn" title="Anrufen / Verbinden">📞</button>
+        <button class="btn danger-btn btn-sm remove-friend-btn" title="Entfernen">✖</button>
+      </div>
+    `;
+
+    item.querySelector('.call-friend-btn').addEventListener('click', () => {
+      remoteIdInput.value = friend.id;
+      connectToPeer(friend.id);
+    });
+
+    item.querySelector('.remove-friend-btn').addEventListener('click', () => {
+      friends.splice(index, 1);
+      saveFriends();
+    });
+
+    friendsListEl.appendChild(item);
+  });
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 // Initialize PeerJS Connection
 function initPeer() {
-  const randomId = 'stream-' + Math.floor(100000 + Math.random() * 900000);
-  peer = new Peer(randomId, {
+  const myId = getMyPeerId();
+  peer = new Peer(myId, {
     debug: 2,
     config: {
       iceServers: ICE_SERVERS,
@@ -86,7 +158,7 @@ function initPeer() {
   });
 
   peer.on('call', async (call) => {
-    currentCall = call;
+    activeCalls.set(call.peer, call);
 
     if (!micStream) {
       try {
@@ -129,7 +201,10 @@ function setupCallHandlers(call) {
   }
 
   call.on('close', () => {
-    resetVideoDisplay();
+    activeCalls.delete(call.peer);
+    if (activeCalls.size === 0) {
+      resetVideoDisplay();
+    }
   });
 
   call.on('error', (err) => {
@@ -138,8 +213,7 @@ function setupCallHandlers(call) {
 }
 
 function setupDataConnection(conn) {
-  dataConn = conn;
-  connectedPeerId = conn.peer;
+  activeDataConns.set(conn.peer, conn);
 
   conn.on('open', () => {
     updateStatus(true, 'Verbunden mit ' + conn.peer);
@@ -155,14 +229,16 @@ function setupDataConnection(conn) {
   });
 
   conn.on('close', () => {
-    updateStatus(false, 'Getrennt');
-    connectedPeerId = null;
-    dataConn = null;
+    activeDataConns.delete(conn.peer);
+    if (activeDataConns.size === 0) {
+      updateStatus(false, 'Getrennt');
+    }
     resetVideoDisplay();
   });
 
   conn.on('error', (err) => {
     console.error('Data Connection Error:', err);
+    activeDataConns.delete(conn.peer);
     updateStatus(false, 'Getrennt');
   });
 }
@@ -194,16 +270,36 @@ copyIdBtn.addEventListener('click', () => {
   }
 });
 
-connectBtn.addEventListener('click', () => {
-  const remoteId = remoteIdInput.value.trim();
+function connectToPeer(remoteId) {
   if (!remoteId) {
-    alert('Bitte gib einen gültigen Code deines Freundes ein.');
+    alert('Bitte gib einen gültigen Code ein.');
     return;
   }
 
   updateStatus(true, 'Verbinde...');
   const conn = peer.connect(remoteId);
   setupDataConnection(conn);
+}
+
+connectBtn.addEventListener('click', () => {
+  const remoteId = remoteIdInput.value.trim();
+  connectToPeer(remoteId);
+});
+
+addFriendBtn.addEventListener('click', () => {
+  const name = addFriendNameInput.value.trim();
+  const id = addFriendIdInput.value.trim();
+
+  if (!name || !id) {
+    alert('Bitte gib sowohl Name als auch Code für den Freund ein.');
+    return;
+  }
+
+  friends.push({ name, id });
+  saveFriends();
+
+  addFriendNameInput.value = '';
+  addFriendIdInput.value = '';
 });
 
 function displayRemoteStream(stream, isLocal = false) {
@@ -242,7 +338,7 @@ startShareBtn.addEventListener('click', async () => {
         item.className = 'source-item';
         item.innerHTML = `
           <img src="${source.thumbnail}" alt="${source.name}">
-          <span>${source.name}</span>
+          <span>${escapeHtml(source.name)}</span>
         `;
         item.addEventListener('click', async () => {
           await window.electronAPI.setSelectedSource(source.id);
@@ -325,9 +421,15 @@ function handleStreamCaptured(stream) {
   startShareBtn.classList.add('hidden');
   stopShareBtn.classList.remove('hidden');
 
-  const targetPeer = connectedPeerId || remoteIdInput.value.trim();
+  // Broadcast stream to connected peer or entered peer ID
+  const targetPeers = new Set(activeDataConns.keys());
+  const manualInput = remoteIdInput.value.trim();
+  if (manualInput) {
+    targetPeers.add(manualInput);
+  }
 
-  if (targetPeer) {
+  targetPeers.forEach(targetPeer => {
+    const dataConn = activeDataConns.get(targetPeer);
     if (dataConn && dataConn.open) {
       dataConn.send({
         type: 'START_SHARE',
@@ -336,9 +438,12 @@ function handleStreamCaptured(stream) {
       });
     }
 
-    currentCall = peer.call(targetPeer, stream);
-    setupCallHandlers(currentCall);
-  }
+    const call = peer.call(targetPeer, stream);
+    if (call) {
+      activeCalls.set(targetPeer, call);
+      setupCallHandlers(call);
+    }
+  });
 
   stream.getVideoTracks()[0].onended = () => {
     stopScreenShare();
@@ -353,9 +458,11 @@ function stopScreenShare() {
     localStream = null;
   }
 
-  if (dataConn && dataConn.open) {
-    dataConn.send({ type: 'STOP_SHARE' });
-  }
+  activeDataConns.forEach(dataConn => {
+    if (dataConn.open) {
+      dataConn.send({ type: 'STOP_SHARE' });
+    }
+  });
 
   resetVideoDisplay();
   startShareBtn.classList.remove('hidden');
@@ -390,4 +497,5 @@ fullscreenBtn.addEventListener('click', () => {
   }
 });
 
+loadFriends();
 initPeer();
