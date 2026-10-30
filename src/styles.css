@@ -20,12 +20,12 @@ body {
 
 /* Sidebar Styling */
 .sidebar {
-  width: 340px;
+  width: 360px;
   background-color: #2b2d31;
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   border-right: 1px solid #111214;
   overflow-y: auto;
 }
@@ -53,11 +53,11 @@ body {
 }
 
 .card h3 {
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: #949ba4;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .input-group {
@@ -87,12 +87,12 @@ body {
 
 input[type="text"], .select-input {
   width: 100%;
-  padding: 10px;
+  padding: 8px 10px;
   background-color: #1e1f22;
   border: 1px solid #3f4147;
   border-radius: 4px;
   color: #f2f3f5;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   outline: none;
 }
 
@@ -100,22 +100,88 @@ input[type="text"]:focus, .select-input:focus {
   border-color: #5865f2;
 }
 
-.divider {
-  text-align: center;
-  font-size: 0.75rem;
+.connect-group {
+  display: flex;
+  gap: 8px;
+}
+
+.connect-group input {
+  flex: 1;
+}
+
+/* Friends Section */
+.add-friend-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.empty-friends {
+  font-size: 0.8rem;
   color: #80848e;
+  font-style: italic;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.friend-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #1e1f22;
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid #3f4147;
+}
+
+.friend-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.friend-name {
+  font-size: 0.85rem;
   font-weight: bold;
-  position: relative;
+  color: #f2f3f5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.friend-id {
+  font-size: 0.75rem;
+  color: #23a55a;
+  font-family: monospace;
+}
+
+.friend-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-sm {
+  padding: 4px 8px;
+  font-size: 0.8rem;
 }
 
 .btn {
-  padding: 10px 16px;
+  padding: 8px 14px;
   border: none;
   border-radius: 4px;
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.2s, transform 0.1s;
-  font-size: 0.9rem;
+  font-size: 0.875rem;
 }
 
 .btn:active {
@@ -144,7 +210,6 @@ input[type="text"]:focus, .select-input:focus {
 .danger-btn {
   background-color: #da373c;
   color: #ffffff;
-  width: 100%;
 }
 
 .danger-btn:hover {
